@@ -49,24 +49,26 @@
   @keyframes fadeout{ to{ opacity:0; transform:translateX(40px) } }
   @keyframes growUp{ from{ stroke-dashoffset: var(--circ) } to{ stroke-dashoffset: var(--target) } }
   .grow-ring{ animation: growUp 1s ease-out forwards; }
+  .icon-btn{ padding:.45rem; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; }
+  .icon-btn:active{ background:rgba(255,255,255,.07); }
   @media (prefers-reduced-motion: reduce){ .card,.btn,.toast,.grow-ring{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body class="min-h-screen">
 
-<div class="max-w-7xl mx-auto p-5 md:p-8 relative z-10">
+<div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 relative z-10">
 
   <!-- Header -->
   <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-5">
     <div>
       <p class="chip text-[var(--gold-soft)] mb-2"><i class="fas fa-leaf"></i>&nbsp; Yuyo, en quechua: hierba que siempre vuelve a crecer</p>
-      <h1 class="serif text-5xl md:text-6xl font-semibold text-[var(--ink)]">YuyoChain</h1>
+      <h1 class="serif text-4xl sm:text-5xl md:text-6xl font-semibold text-[var(--ink)]">YuyoChain</h1>
       <p class="text-[var(--ink-dim)] text-lg mt-1">Nuestra familia, siempre conectada.</p>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <button onclick="openModal('evento')" class="btn btn-primary px-5 py-3 flex items-center gap-2"><i class="fas fa-calendar-plus"></i> Nuevo evento</button>
-      <button onclick="openModal('gasto')" class="btn btn-gold px-5 py-3 flex items-center gap-2"><i class="fas fa-coins"></i> Registrar gasto</button>
-      <button onclick="openModal('memoria')" class="btn btn-ghost px-5 py-3 flex items-center gap-2"><i class="fas fa-images"></i> Memoria</button>
+    <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+      <button onclick="openModal('evento')" class="btn btn-primary px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-calendar-plus"></i> Nuevo evento</button>
+      <button onclick="openModal('gasto')" class="btn btn-gold px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-coins"></i> Registrar gasto</button>
+      <button onclick="openModal('memoria')" class="btn btn-ghost px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-images"></i> Memoria</button>
     </div>
   </header>
 
@@ -127,12 +129,12 @@
         </details>
       </div>
 
-      <div class="card p-6 flex items-center justify-between gap-4">
+      <div class="card p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
           <h3 class="serif text-xl font-medium flex items-center gap-2"><i class="fas fa-store text-[var(--terracotta)]"></i> Mercado</h3>
           <p class="text-sm text-[var(--ink-faint)] mt-1">Nuestra tienda familiar, YuyoShop</p>
         </div>
-        <a href="https://yuyoshop.pages.dev/" target="_blank" rel="noopener" class="btn btn-gold px-5 py-2.5 flex items-center gap-2 flex-shrink-0">
+        <a href="https://yuyoshop.pages.dev/" target="_blank" rel="noopener" class="btn btn-gold px-5 py-2.5 flex items-center justify-center gap-2 flex-shrink-0">
           <i class="fas fa-arrow-up-right-from-square"></i> Ir a la tienda
         </a>
       </div>
@@ -294,7 +296,7 @@ function renderFamilia(){
       </label>
       <p class="font-semibold text-sm flex items-center justify-center gap-1.5">
         ${m.nombre}
-        <button onclick="renombrarFamiliar(${m.id})" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Editar nombre"><i class="fas fa-pen"></i></button>
+        <button onclick="renombrarFamiliar(${m.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Editar nombre"><i class="fas fa-pen"></i></button>
       </p>
       <div class="absolute bottom-0 left-0 right-0 h-1" style="background:${m.color}"></div>
     </div>
@@ -456,9 +458,9 @@ function renderBalance(){
       <span class="truncate">${g.descripcion} <span class="text-[var(--ink-faint)]">— pagó ${nombrePorId(g.pagadoPor)}</span></span>
       <span class="flex items-center gap-2 flex-shrink-0">
         <span class="mono">$${g.monto.toLocaleString()}</span>
-        ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.descripcion.replace(/[^a-z0-9]/gi,'_')}')" class="text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
-        <button onclick="editarGasto(${g.id})" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Corregir"><i class="fas fa-pen text-xs"></i></button>
-        <button onclick="eliminarGasto(${g.id})" class="text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
+        ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.descripcion.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
+        <button onclick="editarGasto(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Corregir"><i class="fas fa-pen text-xs"></i></button>
+        <button onclick="eliminarGasto(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
       </span>
     </div>
   `).join('') : `<p class="text-[var(--ink-faint)]">Sin gastos registrados aún.</p>`;
@@ -552,9 +554,9 @@ function renderGastosFijos(){
         </div>
       </div>
       <div class="flex flex-col gap-1.5 flex-shrink-0">
-        ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}')" class="text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
-        <button onclick="editarGastoFijo(${g.id})" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]"><i class="fas fa-pen text-xs"></i></button>
-        <button onclick="eliminarGastoFijo(${g.id})" class="text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
+        ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
+        <button onclick="editarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]"><i class="fas fa-pen text-xs"></i></button>
+        <button onclick="eliminarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
       </div>
     </div>`;
   }).join('');
@@ -718,7 +720,7 @@ function openModal(tipo){
           <div class="flex items-center gap-2 bg-[var(--bg-soft)] rounded-xl px-3 py-2">
             <span class="text-xl">${f.emoji}</span>
             <span class="flex-1 text-sm">${f.nombre}</span>
-            <button onclick="eliminarFamiliar(${f.id})" class="text-[var(--bad)] text-sm"><i class="fas fa-trash"></i></button>
+            <button onclick="eliminarFamiliar(${f.id})" class="icon-btn text-[var(--bad)] text-sm"><i class="fas fa-trash"></i></button>
           </div>`).join('')}
       </div>
       <div class="space-y-3 border-t border-[var(--line)] pt-4">
