@@ -56,6 +56,11 @@
 </head>
 <body class="min-h-screen">
 
+<div id="cargaInicial" style="position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem;">
+  <i class="fas fa-seedling" style="font-size:2rem; color:var(--sage);"></i>
+  <p style="color:var(--ink-dim); font-family:'Inter',sans-serif; font-size:.9rem;">Cargando YuyoChain…</p>
+</div>
+
 <div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 relative z-10">
 
   <!-- Header -->
@@ -171,37 +176,67 @@
 <div id="toasts" class="fixed top-5 right-5 z-50 space-y-2 w-72"></div>
 
 <script>
-/* ---------- Estado ---------- */
-const DB = {
-  familia: JSON.parse(localStorage.getItem('yc_familia')) || [
+/* ---------- Conexión con el backend compartido ---------- */
+const API_URL = 'https://yuyochain-api.albertoofficial92.workers.dev';
+const CLAVE_APP = 'Aea1169yeye';
+
+const DEFAULTS = {
+  familia: [
     { id:1, nombre:"Tú", emoji:"🧑", color:"#9db48e", accesoHogar:true },
     { id:2, nombre:"Mamá", emoji:"👩", color:"#d9a056", accesoHogar:true },
     { id:3, nombre:"Papá", emoji:"👨", color:"#c97a4f", accesoHogar:true },
     { id:4, nombre:"Hermano", emoji:"🧔", color:"#7d9bc1", accesoHogar:true },
     { id:5, nombre:"Hermana", emoji:"👩‍🦰", color:"#b58bc4", accesoHogar:true },
   ],
-  eventos: JSON.parse(localStorage.getItem('yc_eventos')) || [
+  eventos: [
     { id:1, titulo:"Cumpleaños de Mamá", fecha: addDays(12), emoji:"🎂", completado:false },
     { id:2, titulo:"Reunión familiar", fecha: addDays(28), emoji:"🍲", completado:false },
   ],
-  gastos: JSON.parse(localStorage.getItem('yc_gastos')) || [],
-  votaciones: JSON.parse(localStorage.getItem('yc_votaciones')) || [
+  gastos: [],
+  votaciones: [
     { id:1, titulo:"¿Viaje a la playa en marzo?", descripcion:"Propuesta de Papá para el feriado largo.", votos:{} }
   ],
-  memorias: JSON.parse(localStorage.getItem('yc_memorias')) || [],
-  gastosFijos: JSON.parse(localStorage.getItem('yc_gastosFijos')) || [
+  memorias: [],
+  gastosFijos: [
     { id:1, nombre:"Internet", categoria:"internet", monto:150, participantes:[1,2,3], pagado:false },
     { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", monto:80, participantes:[2], pagado:false },
   ],
+  config: { pinHogar: null },
 };
+
+const DB = JSON.parse(JSON.stringify(DEFAULTS));
 function addDays(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
-function guardar(){
-  localStorage.setItem('yc_familia', JSON.stringify(DB.familia));
-  localStorage.setItem('yc_eventos', JSON.stringify(DB.eventos));
-  localStorage.setItem('yc_gastos', JSON.stringify(DB.gastos));
-  localStorage.setItem('yc_votaciones', JSON.stringify(DB.votaciones));
-  localStorage.setItem('yc_memorias', JSON.stringify(DB.memorias));
-  localStorage.setItem('yc_gastosFijos', JSON.stringify(DB.gastosFijos));
+
+async function cargarEstado(){
+  try{
+    const res = await fetch(API_URL + '/estado');
+    const json = await res.json();
+    if(json.data){
+      Object.assign(DB, json.data);
+      if(!DB.config) DB.config = { pinHogar: null };
+      localStorage.setItem('yc_cache', JSON.stringify(DB));
+    } else {
+      // primera vez: no hay nada en el servidor, sube los valores por defecto
+      await guardar();
+    }
+  }catch(err){
+    const cache = localStorage.getItem('yc_cache');
+    if(cache){ Object.assign(DB, JSON.parse(cache)); }
+    toast('Sin conexión con el servidor — mostrando la última copia guardada en este dispositivo', 'warn');
+  }
+}
+async function guardar(){
+  localStorage.setItem('yc_cache', JSON.stringify(DB)); // copia de respaldo por si falla la red
+  try{
+    const res = await fetch(API_URL + '/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Yuyo-Clave': CLAVE_APP },
+      body: JSON.stringify(DB),
+    });
+    if(!res.ok) throw new Error('respuesta no ok');
+  }catch(err){
+    toast('No se pudo guardar en el servidor (revisa tu conexión)', 'bad');
+  }
 }
 
 /* ---------- Utilidades ---------- */
@@ -209,7 +244,7 @@ function nombrePorId(id){ const m=DB.familia.find(f=>f.id===id); return m? m.nom
 
 /* ---------- Candado de Gastos del hogar ---------- */
 let hogarDesbloqueado = false; // se reinicia cada vez que se carga la página
-function tienePinHogar(){ return !!localStorage.getItem('yc_pinHogar'); }
+function tienePinHogar(){ return !!(DB.config && DB.config.pinHogar); }
 function renderGastosHogarEstado(){
   const acciones = document.getElementById('accionesGastosHogar');
   const body = document.getElementById('gastosHogarBody');
@@ -245,7 +280,7 @@ function renderGastosHogarEstado(){
 function desbloquearGastosHogar(){
   const input = document.getElementById('hogar-pin-input');
   const intento = input.value;
-  if(intento === localStorage.getItem('yc_pinHogar')){
+  if(intento === DB.config.pinHogar){
     hogarDesbloqueado = true;
     renderGastosHogarEstado();
     toast('Acceso concedido 🔓');
@@ -259,12 +294,13 @@ function bloquearGastosHogar(){
   renderGastosHogarEstado();
 }
 function configurarPinHogar(){
-  const actual = localStorage.getItem('yc_pinHogar');
+  const actual = DB.config.pinHogar;
   if(actual && !hogarDesbloqueado){ toast('Necesitas desbloquear con la clave actual antes de cambiarla', 'bad'); return; }
   const nueva = prompt(actual ? 'Nueva clave para Gastos del hogar:' : 'Crea una clave para proteger Gastos del hogar:');
   if(nueva===null) return;
   if(!nueva.trim()){ toast('La clave no puede estar vacía', 'bad'); return; }
-  localStorage.setItem('yc_pinHogar', nueva.trim());
+  DB.config.pinHogar = nueva.trim();
+  guardar();
   toast('Clave guardada 🔑. Compártela solo con quienes deban ver esta sección.');
 }
 function toast(msg, tipo='ok'){
@@ -814,8 +850,16 @@ async function guardarMemoria(){
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
 
 /* ---------- Init ---------- */
-renderFamilia(); renderEventos(); renderCalendario(); renderBalance(); renderVotaciones(); renderMemorias();
-renderGastosHogarEstado();
+function renderTodo(){
+  renderFamilia(); renderEventos(); renderCalendario(); renderBalance(); renderVotaciones(); renderMemorias();
+  renderGastosHogarEstado();
+}
+(async function iniciar(){
+  const overlay = document.getElementById('cargaInicial');
+  await cargarEstado();
+  renderTodo();
+  if(overlay) overlay.remove();
+})();
 </script>
 </body>
 </html>
