@@ -295,7 +295,11 @@ function bloquearGastosHogar(){
 }
 function configurarPinHogar(){
   const actual = DB.config.pinHogar;
-  if(actual && !hogarDesbloqueado){ toast('Necesitas desbloquear con la clave actual antes de cambiarla', 'bad'); return; }
+  if(actual){
+    const intento = prompt('Para cambiar la clave, primero escribe la clave actual:');
+    if(intento===null) return;
+    if(intento !== actual){ toast('Clave actual incorrecta. No se hizo ningún cambio.', 'bad'); return; }
+  }
   const nueva = prompt(actual ? 'Nueva clave para Gastos del hogar:' : 'Crea una clave para proteger Gastos del hogar:');
   if(nueva===null) return;
   if(!nueva.trim()){ toast('La clave no puede estar vacía', 'bad'); return; }
