@@ -624,37 +624,32 @@ function renderCalendario(){
 }
 
 /* ---------- Render: Gastos / Deudas ---------- */
-function calcularDeudas(){
-  const balances = {};
-  DB.familia.forEach(m=> balances[m.id] = 0);
-  DB.gastos.forEach(g=>{
+function calcularDeudasPorGasto(){
+  // Cada gasto se calcula de forma independiente: no se mezcla ni se compensa con otros gastos.
+  return DB.gastos.map(g=>{
     const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
     const parte = g.monto / participantes.length;
-    balances[g.pagadoPor] = (balances[g.pagadoPor]||0) + g.monto;
-    participantes.forEach(pid => balances[pid] = (balances[pid]||0) - parte);
-  });
-  // simplificación de deudas: deudores pagan a acreedores
-  const deudores = Object.entries(balances).filter(([,v])=>v<-0.01).map(([id,v])=>({id:+id, v:-v}));
-  const acreedores = Object.entries(balances).filter(([,v])=>v>0.01).map(([id,v])=>({id:+id, v}));
-  const transacciones = [];
-  let i=0, j=0;
-  while(i<deudores.length && j<acreedores.length){
-    const pago = Math.min(deudores[i].v, acreedores[j].v);
-    transacciones.push({ de: deudores[i].id, a: acreedores[j].id, monto: pago });
-    deudores[i].v -= pago; acreedores[j].v -= pago;
-    if(deudores[i].v < 0.01) i++;
-    if(acreedores[j].v < 0.01) j++;
-  }
-  return transacciones;
+    const transacciones = participantes
+      .filter(pid => pid !== g.pagadoPor)
+      .map(pid => ({ de: pid, a: g.pagadoPor, monto: parte }));
+    return { id: g.id, descripcion: g.descripcion, transacciones };
+  }).filter(grupo => grupo.transacciones.length > 0);
 }
 function renderBalance(){
   const total = DB.gastos.reduce((s,g)=>s+g.monto,0);
   document.getElementById('totalGastado').textContent = '$'+total.toLocaleString();
-  const trans = calcularDeudas();
-  document.getElementById('deudas').innerHTML = trans.length ? trans.map(t=>`
-    <div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2">
-      <span><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
-      <span class="mono font-semibold">$${t.monto.toFixed(2)}</span>
+  const grupos = calcularDeudasPorGasto();
+  document.getElementById('deudas').innerHTML = grupos.length ? grupos.map(grp=>`
+    <div>
+      <p class="text-xs text-[var(--ink-faint)] mb-1.5 truncate">${grp.descripcion}</p>
+      <div class="space-y-1.5">
+        ${grp.transacciones.map(t=>`
+          <div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2">
+            <span><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
+            <span class="mono font-semibold">$${t.monto.toFixed(2)}</span>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `).join('') : `<p class="text-sm text-[var(--ink-faint)]">Todo está parejo, nadie debe nada 🎉</p>`;
 
