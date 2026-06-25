@@ -194,10 +194,29 @@
       <p class="text-[var(--ink-faint)] text-center mb-6">Se reparte automáticamente entre quienes elijas</p>
       <div class="card p-6 space-y-3">
         <input id="g-desc" placeholder="Descripción del gasto">
-        <input id="g-monto" type="number" placeholder="Monto ($)">
         <select id="g-pago"></select>
-        <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
-        <div id="g-participantes" class="flex flex-wrap gap-2"></div>
+
+        <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="radio" name="g-modo" value="igual" checked onchange="cambiarModoGasto()" style="width:auto"> Repartir en partes iguales
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="radio" name="g-modo" value="personalizado" onchange="cambiarModoGasto()" style="width:auto"> Cada uno debe un monto distinto
+          </label>
+        </div>
+
+        <div id="g-bloque-igual" class="space-y-3">
+          <input id="g-monto" type="number" placeholder="Monto ($)">
+          <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
+          <div id="g-participantes" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div id="g-bloque-personalizado" class="space-y-2 hidden">
+          <p class="text-xs text-[var(--ink-faint)]">Marca quién debe y escribe cuánto debe cada uno:</p>
+          <div id="g-aportes-lista" class="space-y-2"></div>
+          <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="g-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+        </div>
+
         <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Adjuntar boleta (opcional, <span id="g-boleta-contador"></span>)</p>
         <input id="g-boleta" type="file" accept="image/*">
         <button onclick="guardarGasto()" class="btn btn-gold w-full py-3 mt-2">Guardar y continuar</button>
@@ -627,11 +646,19 @@ function renderCalendario(){
 function calcularDeudasPorGasto(){
   // Cada gasto se calcula de forma independiente: no se mezcla ni se compensa con otros gastos.
   return DB.gastos.map(g=>{
-    const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
-    const parte = g.monto / participantes.length;
-    const transacciones = participantes
-      .filter(pid => pid !== g.pagadoPor)
-      .map(pid => ({ de: pid, a: g.pagadoPor, monto: parte }));
+    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+    let transacciones;
+    if(tieneAportes){
+      transacciones = Object.entries(g.aportes)
+        .filter(([pid]) => +pid !== g.pagadoPor)
+        .map(([pid, monto]) => ({ de: +pid, a: g.pagadoPor, monto: +monto }));
+    } else {
+      const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
+      const parte = g.monto / participantes.length;
+      transacciones = participantes
+        .filter(pid => pid !== g.pagadoPor)
+        .map(pid => ({ de: pid, a: g.pagadoPor, monto: parte }));
+    }
     return { id: g.id, descripcion: g.descripcion, transacciones };
   }).filter(grupo => grupo.transacciones.length > 0);
 }
@@ -679,6 +706,8 @@ function descargarBoleta(dataUrl, nombre){
 function editarGasto(id){
   const g = DB.gastos.find(x=>x.id===id);
   if(!g) return;
+  const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+  const modoIgual = !tieneAportes;
   const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
   const back = document.getElementById('modalBackdrop');
   const c = document.getElementById('modalContenido');
@@ -688,13 +717,41 @@ function editarGasto(id){
     <h3 class="serif text-2xl mb-4">Corregir gasto</h3>
     <div class="space-y-3">
       <input id="ge-desc" value="${g.descripcion.replace(/"/g,'&quot;')}" placeholder="Descripción del gasto">
-      <input id="ge-monto" type="number" value="${g.monto}" placeholder="Monto ($)">
       <select id="ge-pago">${DB.familia.map(f=>`<option value="${f.id}" ${f.id===g.pagadoPor?'selected':''}>${f.emoji} ${f.nombre}</option>`).join('')}</select>
-      <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
-      <div class="flex flex-wrap gap-2">
-        ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
-          <input type="checkbox" class="ge-part" value="${f.id}" ${participantes.includes(f.id)?'checked':''} style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('')}
+
+      <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="ge-modo" value="igual" ${modoIgual?'checked':''} onchange="cambiarModoEdicionGasto()" style="width:auto"> Repartir en partes iguales
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="ge-modo" value="personalizado" ${!modoIgual?'checked':''} onchange="cambiarModoEdicionGasto()" style="width:auto"> Cada uno debe un monto distinto
+        </label>
       </div>
+
+      <div id="ge-bloque-igual" class="space-y-3 ${modoIgual?'':'hidden'}">
+        <input id="ge-monto" type="number" value="${modoIgual? g.monto : ''}" placeholder="Monto ($)">
+        <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
+        <div class="flex flex-wrap gap-2">
+          ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
+            <input type="checkbox" class="ge-part" value="${f.id}" ${participantes.includes(f.id)?'checked':''} style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('')}
+        </div>
+      </div>
+
+      <div id="ge-bloque-personalizado" class="space-y-2 ${modoIgual?'hidden':''}">
+        <p class="text-xs text-[var(--ink-faint)]">Marca quién debe y escribe cuánto debe cada uno:</p>
+        ${DB.familia.map(f=>{
+          const valor = (g.aportes && g.aportes[f.id]!=null) ? g.aportes[f.id] : '';
+          const marcado = g.aportes && g.aportes[f.id]!=null;
+          return `
+          <div class="flex items-center gap-2">
+            <input type="checkbox" class="ge-part-custom" value="${f.id}" ${marcado?'checked':''} onchange="actualizarTotalPersonalizadoEdicionGasto()" style="width:auto">
+            <span class="text-sm flex-1">${f.emoji} ${f.nombre}</span>
+            <input type="number" class="ge-aporte" data-id="${f.id}" placeholder="0" value="${valor}" oninput="actualizarTotalPersonalizadoEdicionGasto()" style="width:6.5rem">
+          </div>`;
+        }).join('')}
+        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="ge-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+      </div>
+
       <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Boleta adjunta ${g.boleta? '(ya tiene una — subir otra la reemplaza)':'(opcional)'}</p>
       <div class="flex items-center gap-2">
         <input id="ge-boleta" type="file" accept="image/*" class="flex-1">
@@ -705,20 +762,53 @@ function editarGasto(id){
         <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cancelar</button>
       </div>
     </div>`;
+  if(!modoIgual) actualizarTotalPersonalizadoEdicionGasto();
+}
+function cambiarModoEdicionGasto(){
+  const modo = document.querySelector('input[name="ge-modo"]:checked').value;
+  document.getElementById('ge-bloque-igual').classList.toggle('hidden', modo!=='igual');
+  document.getElementById('ge-bloque-personalizado').classList.toggle('hidden', modo!=='personalizado');
+  if(modo==='personalizado') actualizarTotalPersonalizadoEdicionGasto();
+}
+function actualizarTotalPersonalizadoEdicionGasto(){
+  let total = 0;
+  document.querySelectorAll('.ge-part-custom:checked').forEach(chk=>{
+    const input = document.querySelector(`.ge-aporte[data-id="${chk.value}"]`);
+    total += parseFloat(input.value) || 0;
+  });
+  const span = document.getElementById('ge-total-personalizado');
+  if(span) span.textContent = '$' + total.toFixed(2);
 }
 async function guardarEdicionGasto(id){
   const g = DB.gastos.find(x=>x.id===id);
   const descripcion = document.getElementById('ge-desc').value.trim();
-  const monto = parseFloat(document.getElementById('ge-monto').value);
   const pagadoPor = +document.getElementById('ge-pago').value;
-  const participantes = Array.from(document.querySelectorAll('.ge-part:checked')).map(x=>+x.value);
+  const modo = document.querySelector('input[name="ge-modo"]:checked').value;
   const archivo = document.getElementById('ge-boleta').files[0];
-  if(!descripcion || isNaN(monto) || monto<=0 || !participantes.length){ toast('Revisa los datos: faltan campos o participantes', 'bad'); return; }
+
+  let monto, participantes, aportes = null;
+  if(modo === 'igual'){
+    monto = parseFloat(document.getElementById('ge-monto').value);
+    participantes = Array.from(document.querySelectorAll('.ge-part:checked')).map(x=>+x.value);
+    if(!participantes.length){ toast('Elige quién participa en el reparto', 'bad'); return; }
+  } else {
+    aportes = {};
+    document.querySelectorAll('.ge-part-custom:checked').forEach(chk=>{
+      const pid = +chk.value;
+      const input = document.querySelector(`.ge-aporte[data-id="${pid}"]`);
+      const val = parseFloat(input.value);
+      if(!isNaN(val) && val > 0) aportes[pid] = val;
+    });
+    participantes = Object.keys(aportes).map(Number);
+    if(!participantes.length){ toast('Escribe cuánto debe al menos una persona', 'bad'); return; }
+    monto = Object.values(aportes).reduce((s,v)=>s+v, 0);
+  }
+  if(!descripcion || isNaN(monto) || monto<=0){ toast('Revisa los datos: faltan campos o montos', 'bad'); return; }
   if(archivo){
     if(!g.boleta && contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
     try{ g.boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); return; }
   }
-  g.descripcion = descripcion; g.monto = monto; g.pagadoPor = pagadoPor; g.participantes = participantes;
+  g.descripcion = descripcion; g.monto = monto; g.pagadoPor = pagadoPor; g.participantes = participantes; g.aportes = aportes;
   guardar(); renderBalance(); closeModal();
   toast('Gasto corregido ✏️');
 }
@@ -1108,10 +1198,35 @@ function poblarFormGasto(){
   document.getElementById('g-pago').innerHTML = DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('');
   document.getElementById('g-participantes').innerHTML = DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
     <input type="checkbox" class="g-part" value="${f.id}" checked style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('');
+  document.getElementById('g-aportes-lista').innerHTML = DB.familia.map(f=>`
+    <div class="flex items-center gap-2">
+      <input type="checkbox" class="g-part-custom" value="${f.id}" onchange="actualizarTotalPersonalizadoGasto()" style="width:auto">
+      <span class="text-sm flex-1">${f.emoji} ${f.nombre}</span>
+      <input type="number" class="g-aporte" data-id="${f.id}" placeholder="0" oninput="actualizarTotalPersonalizadoGasto()" style="width:6.5rem">
+    </div>`).join('');
   document.getElementById('g-boleta-contador').textContent = `${contarBoletas()}/${TOPE_BOLETAS} usadas`;
   document.getElementById('g-desc').value = '';
   document.getElementById('g-monto').value = '';
   document.getElementById('g-boleta').value = '';
+  document.querySelector('input[name="g-modo"][value="igual"]').checked = true;
+  document.getElementById('g-bloque-igual').classList.remove('hidden');
+  document.getElementById('g-bloque-personalizado').classList.add('hidden');
+  actualizarTotalPersonalizadoGasto();
+}
+function cambiarModoGasto(){
+  const modo = document.querySelector('input[name="g-modo"]:checked').value;
+  document.getElementById('g-bloque-igual').classList.toggle('hidden', modo!=='igual');
+  document.getElementById('g-bloque-personalizado').classList.toggle('hidden', modo!=='personalizado');
+  if(modo==='personalizado') actualizarTotalPersonalizadoGasto();
+}
+function actualizarTotalPersonalizadoGasto(){
+  let total = 0;
+  document.querySelectorAll('.g-part-custom:checked').forEach(chk=>{
+    const input = document.querySelector(`.g-aporte[data-id="${chk.value}"]`);
+    total += parseFloat(input.value) || 0;
+  });
+  const span = document.getElementById('g-total-personalizado');
+  if(span) span.textContent = '$' + total.toFixed(2);
 }
 function poblarFormMemoria(){
   document.getElementById('m-titulo').value = '';
@@ -1130,17 +1245,35 @@ function guardarEvento(){
 }
 async function guardarGasto(){
   const descripcion = document.getElementById('g-desc').value.trim();
-  const monto = parseFloat(document.getElementById('g-monto').value);
   const pagadoPor = +document.getElementById('g-pago').value;
-  const participantes = Array.from(document.querySelectorAll('.g-part:checked')).map(x=>+x.value);
+  const modo = document.querySelector('input[name="g-modo"]:checked').value;
   const archivo = document.getElementById('g-boleta').files[0];
-  if(!descripcion || !monto || monto<=0){ toast('Revisa la descripción y el monto', 'bad'); return; }
+
+  let monto, participantes, aportes = null;
+  if(modo === 'igual'){
+    monto = parseFloat(document.getElementById('g-monto').value);
+    participantes = Array.from(document.querySelectorAll('.g-part:checked')).map(x=>+x.value);
+    if(!participantes.length){ toast('Elige quién participa en el reparto', 'bad'); return; }
+  } else {
+    aportes = {};
+    document.querySelectorAll('.g-part-custom:checked').forEach(chk=>{
+      const pid = +chk.value;
+      const input = document.querySelector(`.g-aporte[data-id="${pid}"]`);
+      const val = parseFloat(input.value);
+      if(!isNaN(val) && val > 0) aportes[pid] = val;
+    });
+    participantes = Object.keys(aportes).map(Number);
+    if(!participantes.length){ toast('Escribe cuánto debe al menos una persona', 'bad'); return; }
+    monto = Object.values(aportes).reduce((s,v)=>s+v, 0);
+  }
+  if(!descripcion || isNaN(monto) || monto<=0){ toast('Revisa la descripción y los montos', 'bad'); return; }
+
   let boleta = null;
   if(archivo){
     if(contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. El gasto se guardará sin boleta.`, 'warn'); }
     else { try{ boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); } }
   }
-  DB.gastos.push({ id:Date.now(), descripcion, monto, pagadoPor, participantes, boleta, fecha:new Date().toISOString().split('T')[0] });
+  DB.gastos.push({ id:Date.now(), descripcion, monto, pagadoPor, participantes, aportes, boleta, fecha:new Date().toISOString().split('T')[0] });
   guardar(); renderBalance();
   toast('Gasto registrado y repartido ✅');
   avanzarAsistente(`💰 Gasto registrado: "${descripcion}" — $${monto.toLocaleString()}`);
