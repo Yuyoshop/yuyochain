@@ -137,7 +137,7 @@
         <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#logoGradHero)"/>
         <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#logoGradHero)" opacity="0.85"/>
       </svg>
-      <p class="chip text-[var(--gold-soft)] mb-2 inline-block"><i class="fas fa-leaf"></i>&nbsp; Yuyo, en quechua: hierba que siempre vuelve a crecer</p>
+      <p class="chip text-[var(--gold-soft)] mb-2 inline-block"><i class="fas fa-leaf"></i>&nbsp; Tu cartera familiar: toma la iniciativa y mide los gastos antes del descontrol</p>
       <h1 class="serif text-4xl sm:text-5xl font-semibold text-[var(--ink)]">YuyoChain</h1>
       <p class="text-[var(--ink-dim)] text-lg mt-1">Nuestra familia, siempre conectada.</p>
     </div>
@@ -735,7 +735,10 @@ function renderGastosFijos(){
   const div = document.getElementById('gastosFijos');
   if(!DB.gastosFijos.length){ div.innerHTML = `<p class="text-sm text-[var(--ink-faint)]">No hay gastos fijos registrados.</p>`; return; }
   div.innerHTML = DB.gastosFijos.map(g=>{
-    const participantes = (g.participantes && g.participantes.length) ? g.participantes : (g.responsable ? [g.responsable] : DB.familia.map(f=>f.id));
+    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+    const participantes = tieneAportes
+      ? Object.keys(g.aportes).map(Number)
+      : ((g.participantes && g.participantes.length) ? g.participantes : (g.responsable ? [g.responsable] : DB.familia.map(f=>f.id)));
     const porPersona = g.monto / participantes.length;
     return `
     <div class="flex items-start gap-3 bg-[var(--bg-soft)] rounded-xl px-3 py-2.5 ${g.pagado?'opacity-60':''}">
@@ -748,9 +751,17 @@ function renderGastosFijos(){
           <p class="text-sm font-medium truncate ${g.pagado?'line-through':''}">${g.nombre}</p>
           <span class="mono text-sm font-semibold flex-shrink-0">$${g.monto.toLocaleString()}</span>
         </div>
-        <p class="text-xs text-[var(--ink-faint)] mt-0.5">Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">$${porPersona.toFixed(2)} c/u</span></p>
+        <p class="text-xs text-[var(--ink-faint)] mt-0.5">
+          ${tieneAportes
+            ? `Aporte personalizado entre ${participantes.length} ${participantes.length===1?'persona':'personas'}`
+            : `Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">$${porPersona.toFixed(2)} c/u</span>`}
+        </p>
         <div class="flex flex-wrap gap-1.5 mt-1.5">
-          ${participantes.map(pid=>{ const m = DB.familia.find(f=>f.id===pid); return m ? `<span class="chip" style="background:rgba(157,180,142,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}</span>` : ''; }).join('')}
+          ${participantes.map(pid=>{
+            const m = DB.familia.find(f=>f.id===pid); if(!m) return '';
+            const montoChip = tieneAportes ? `$${(+g.aportes[pid]).toFixed(2)}` : '';
+            return `<span class="chip" style="background:rgba(157,180,142,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}${montoChip?' · '+montoChip:''}</span>`;
+          }).join('')}
         </div>
       </div>
       <div class="flex flex-col gap-1.5 flex-shrink-0">
@@ -769,6 +780,8 @@ function alternarPagadoFijo(id){
 }
 function abrirFormGastoFijo(id){
   const g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
+  const tieneAportes = g && g.aportes && Object.keys(g.aportes).length > 0;
+  const modoIgual = !tieneAportes;
   const participantes = g ? ((g.participantes && g.participantes.length) ? g.participantes : (g.responsable?[g.responsable]:[])) : [];
   const back = document.getElementById('modalBackdrop');
   const c = document.getElementById('modalContenido');
@@ -783,12 +796,40 @@ function abrirFormGastoFijo(id){
         <option value="limpieza" ${g?.categoria==='limpieza'?'selected':''}>🧹 Limpieza</option>
         <option value="otro" ${(!g || g.categoria==='otro')?'selected':''}>📦 Otro</option>
       </select>
-      <input id="gf-monto" type="number" placeholder="Monto ($)" value="${g? g.monto : ''}">
-      <p class="text-xs text-[var(--ink-faint)] mt-1">¿Entre quiénes se reparte?</p>
-      <div class="flex flex-wrap gap-2">
-        ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
-          <input type="checkbox" class="gf-part" value="${f.id}" ${participantes.includes(f.id)?'checked':''} style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('')}
+
+      <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="gf-modo" value="igual" ${modoIgual?'checked':''} onchange="cambiarModoGastoFijo()" style="width:auto"> Repartir en partes iguales
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="gf-modo" value="personalizado" ${!modoIgual?'checked':''} onchange="cambiarModoGastoFijo()" style="width:auto"> Cada uno aporta un monto distinto
+        </label>
       </div>
+
+      <div id="gf-bloque-igual" class="space-y-3 ${modoIgual?'':'hidden'}">
+        <input id="gf-monto" type="number" placeholder="Monto total ($)" value="${g && modoIgual ? g.monto : ''}">
+        <p class="text-xs text-[var(--ink-faint)] mt-1">¿Entre quiénes se reparte?</p>
+        <div class="flex flex-wrap gap-2">
+          ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
+            <input type="checkbox" class="gf-part-igual" value="${f.id}" ${participantes.includes(f.id)?'checked':''} style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('')}
+        </div>
+      </div>
+
+      <div id="gf-bloque-personalizado" class="space-y-2 ${modoIgual?'hidden':''}">
+        <p class="text-xs text-[var(--ink-faint)]">Marca quién aporta y escribe cuánto pone cada uno:</p>
+        ${DB.familia.map(f=>{
+          const aporteActual = (g && g.aportes && g.aportes[f.id]!=null) ? g.aportes[f.id] : '';
+          const marcado = g && g.aportes && g.aportes[f.id]!=null;
+          return `
+          <div class="flex items-center gap-2">
+            <input type="checkbox" class="gf-part-custom" value="${f.id}" ${marcado?'checked':''} onchange="actualizarTotalPersonalizado()" style="width:auto">
+            <span class="text-sm flex-1">${f.emoji} ${f.nombre}</span>
+            <input type="number" class="gf-aporte" data-id="${f.id}" placeholder="0" value="${aporteActual}" oninput="actualizarTotalPersonalizado()" style="width:6.5rem">
+          </div>`;
+        }).join('')}
+        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="gf-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+      </div>
+
       <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Boleta adjunta ${g?.boleta? '(ya tiene una — subir otra la reemplaza)':`(opcional, ${contarBoletas()}/${TOPE_BOLETAS} usadas)`}</p>
       <div class="flex items-center gap-2">
         <input id="gf-boleta" type="file" accept="image/*" class="flex-1">
@@ -796,15 +837,48 @@ function abrirFormGastoFijo(id){
       </div>
       <button onclick="guardarGastoFijo(${g? g.id : 'null'})" class="btn btn-primary w-full py-3 mt-2">${g?'Guardar cambios':'Agregar gasto'}</button>
     </div>`;
+  if(!modoIgual) actualizarTotalPersonalizado();
+}
+function cambiarModoGastoFijo(){
+  const modo = document.querySelector('input[name="gf-modo"]:checked').value;
+  document.getElementById('gf-bloque-igual').classList.toggle('hidden', modo!=='igual');
+  document.getElementById('gf-bloque-personalizado').classList.toggle('hidden', modo!=='personalizado');
+  if(modo==='personalizado') actualizarTotalPersonalizado();
+}
+function actualizarTotalPersonalizado(){
+  let total = 0;
+  document.querySelectorAll('.gf-part-custom:checked').forEach(chk=>{
+    const input = document.querySelector(`.gf-aporte[data-id="${chk.value}"]`);
+    total += parseFloat(input.value) || 0;
+  });
+  const span = document.getElementById('gf-total-personalizado');
+  if(span) span.textContent = '$' + total.toFixed(2);
 }
 async function guardarGastoFijo(id){
   const nombre = document.getElementById('gf-nombre').value.trim();
   const categoria = document.getElementById('gf-categoria').value;
-  const monto = parseFloat(document.getElementById('gf-monto').value);
-  const participantes = Array.from(document.querySelectorAll('.gf-part:checked')).map(x=>+x.value);
+  const modo = document.querySelector('input[name="gf-modo"]:checked').value;
   const archivo = document.getElementById('gf-boleta').files[0];
-  if(!nombre || isNaN(monto) || monto<=0){ toast('Revisa el nombre y el monto', 'bad'); return; }
-  if(!participantes.length){ toast('Elige con quiénes se reparte este gasto', 'bad'); return; }
+
+  let monto, participantes, aportes = null;
+  if(modo === 'igual'){
+    monto = parseFloat(document.getElementById('gf-monto').value);
+    participantes = Array.from(document.querySelectorAll('.gf-part-igual:checked')).map(x=>+x.value);
+    if(!participantes.length){ toast('Elige con quiénes se reparte este gasto', 'bad'); return; }
+  } else {
+    aportes = {};
+    document.querySelectorAll('.gf-part-custom:checked').forEach(chk=>{
+      const pid = +chk.value;
+      const input = document.querySelector(`.gf-aporte[data-id="${pid}"]`);
+      const val = parseFloat(input.value);
+      if(!isNaN(val) && val > 0) aportes[pid] = val;
+    });
+    participantes = Object.keys(aportes).map(Number);
+    if(!participantes.length){ toast('Escribe cuánto aporta al menos una persona', 'bad'); return; }
+    monto = Object.values(aportes).reduce((s,v)=>s+v, 0);
+  }
+  if(!nombre || isNaN(monto) || monto<=0){ toast('Revisa el nombre y los montos', 'bad'); return; }
+
   let g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
   if(archivo){
     if(!(g && g.boleta) && contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
@@ -814,10 +888,10 @@ async function guardarGastoFijo(id){
     try{ boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); return; }
   }
   if(g){
-    g.nombre=nombre; g.categoria=categoria; g.monto=monto; g.participantes=participantes; g.boleta=boleta; delete g.responsable;
+    g.nombre=nombre; g.categoria=categoria; g.monto=monto; g.participantes=participantes; g.aportes=aportes; g.boleta=boleta; delete g.responsable;
     toast('Gasto del hogar actualizado ✏️');
   } else {
-    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, monto, participantes, boleta, pagado:false });
+    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, monto, participantes, aportes, boleta, pagado:false });
     toast('Gasto del hogar agregado 🧹');
   }
   guardar(); renderGastosFijos(); closeModal();
