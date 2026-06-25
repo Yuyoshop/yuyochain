@@ -748,7 +748,7 @@ function renderGastosFijos(){
           <p class="text-sm font-medium truncate ${g.pagado?'line-through':''}">${g.nombre}</p>
           <span class="mono text-sm font-semibold flex-shrink-0">$${g.monto.toLocaleString()}</span>
         </div>
-        <p class="text-xs text-[var(--ink-faint)] mt-0.5">Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">$${porPersona.toFixed(0)} c/u</span></p>
+        <p class="text-xs text-[var(--ink-faint)] mt-0.5">Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">$${porPersona.toFixed(2)} c/u</span></p>
         <div class="flex flex-wrap gap-1.5 mt-1.5">
           ${participantes.map(pid=>{ const m = DB.familia.find(f=>f.id===pid); return m ? `<span class="chip" style="background:rgba(157,180,142,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}</span>` : ''; }).join('')}
         </div>
