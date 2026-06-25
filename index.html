@@ -843,7 +843,13 @@ function renderVotaciones(){
     const si = votos.filter(x=>x==='si').length, no = votos.filter(x=>x==='no').length;
     return `
     <div class="card p-5">
-      <p class="font-semibold">${v.titulo}</p>
+      <div class="flex items-start justify-between gap-2">
+        <p class="font-semibold flex-1">${v.titulo}</p>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button onclick="editarVotacion(${v.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Editar"><i class="fas fa-pen text-xs"></i></button>
+          <button onclick="eliminarVotacion(${v.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
+        </div>
+      </div>
       <p class="text-[var(--ink-faint)] text-sm mt-1">${v.descripcion||''}</p>
       <div class="mt-4 grid grid-cols-2 gap-2">
         <button onclick="votar(${v.id},'si')" class="btn py-2.5" style="background:rgba(143,191,127,.15); color:var(--good); border:1px solid var(--good)">👍 Sí (${si})</button>
@@ -858,6 +864,39 @@ function votar(id, voto){
   v.votos['yo'] = voto;
   guardar(); renderVotaciones();
   toast(`Tu voto "${voto.toUpperCase()}" quedó registrado`, 'ok');
+}
+function editarVotacion(id){
+  const v = DB.votaciones.find(x=>x.id===id);
+  if(!v) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <h3 class="serif text-2xl mb-4">Corregir propuesta</h3>
+    <div class="space-y-3">
+      <input id="ve-titulo" value="${v.titulo.replace(/"/g,'&quot;')}" placeholder="Título de la propuesta">
+      <textarea id="ve-desc" rows="3" placeholder="Descripción">${v.descripcion||''}</textarea>
+      <div class="flex gap-2 mt-2">
+        <button onclick="guardarEdicionVotacion(${v.id})" class="btn btn-primary flex-1 py-3">Guardar cambios</button>
+        <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cancelar</button>
+      </div>
+    </div>`;
+}
+function guardarEdicionVotacion(id){
+  const v = DB.votaciones.find(x=>x.id===id);
+  const titulo = document.getElementById('ve-titulo').value.trim();
+  const descripcion = document.getElementById('ve-desc').value.trim();
+  if(!titulo){ toast('Falta el título de la propuesta', 'bad'); return; }
+  v.titulo = titulo; v.descripcion = descripcion;
+  guardar(); renderVotaciones(); closeModal();
+  toast('Propuesta corregida ✏️');
+}
+function eliminarVotacion(id){
+  if(!confirm('¿Eliminar esta propuesta y sus votos?')) return;
+  DB.votaciones = DB.votaciones.filter(v=>v.id!==id);
+  guardar(); renderVotaciones();
+  toast('Propuesta eliminada 🗑️');
 }
 
 /* ---------- Render: Memorias ---------- */
