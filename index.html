@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YuyoChain • Familia Unida</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%239db48e'/%3E%3Cstop offset='1' stop-color='%23d9a056'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23171c16'/%3E%3Crect x='5' y='16' width='38' height='23' rx='11.5' fill='none' stroke='url(%23g)' stroke-width='2.5' opacity='0.65'/%3E%3Cpath d='M24 39 C24 30 24 21 24 13' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z' fill='url(%23g)'/%3E%3Cpath d='M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z' fill='url(%23g)' opacity='0.85'/%3E%3C/svg%3E">
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +52,42 @@
   .grow-ring{ animation: growUp 1s ease-out forwards; }
   .icon-btn{ padding:.45rem; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; }
   .icon-btn:active{ background:rgba(255,255,255,.07); }
-  @media (prefers-reduced-motion: reduce){ .card,.btn,.toast,.grow-ring{ animation:none !important; transition:none !important; } }
+
+  /* Paneles */
+  .panel{ display:none; }
+  .panel.panel-activa{ display:block; animation: panelIn .35s ease; }
+  @keyframes panelIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+
+  /* Botones tipo "vidrio" para la pantalla de inicio */
+  .glass-btn{
+    position:relative; border-radius:22px; padding:1.1rem .6rem; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:.5rem; text-align:center; cursor:pointer;
+    border:1px solid rgba(255,255,255,.08);
+    background:linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.015));
+    backdrop-filter:blur(8px); transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .glass-btn:hover{ transform:translateY(-4px); box-shadow:0 16px 30px -12px var(--glow); }
+  .glass-btn:active{ transform:translateY(-1px) scale(.98); }
+  .glass-btn i{
+    font-family:"Font Awesome 6 Free" !important; font-weight:900 !important; font-style:normal !important;
+    font-size:1.5rem; line-height:1; display:block;
+    color:var(--glow); text-shadow:0 0 10px var(--glow);
+  }
+  .glass-btn .glass-label{ font-weight:600; font-size:.76rem; color:var(--ink); }
+  .glass-btn.principal{ padding:1.6rem .75rem; }
+  .glass-btn.principal i{ font-size:2rem; }
+  .glass-btn.principal .glass-label{ font-size:.95rem; }
+
+  /* Indicador de pasos del asistente */
+  .paso-stepper{ display:flex; flex-direction:column; align-items:center; gap:.3rem; }
+  .paso-circulo{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; border:2px solid var(--line); color:var(--ink-faint); background:var(--surface); transition:.3s; }
+  .paso-texto{ font-size:.65rem; color:var(--ink-faint); }
+  .paso-activo .paso-circulo{ border-color:var(--gold); color:var(--gold); box-shadow:0 0 12px rgba(217,160,86,.5); }
+  .paso-activo .paso-texto{ color:var(--gold-soft); font-weight:600; }
+  .paso-hecho .paso-circulo{ border-color:var(--good); color:var(--good); background:rgba(143,191,127,.12); }
+  .paso-linea{ width:28px; height:2px; background:var(--line); margin-top:17px; }
+
+  @media (prefers-reduced-motion: reduce){ .card,.btn,.toast,.grow-ring,.panel{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body class="min-h-screen">
@@ -63,63 +99,112 @@
 
 <div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 relative z-10">
 
-  <!-- Header -->
-  <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-5">
-    <div>
-      <p class="chip text-[var(--gold-soft)] mb-2"><i class="fas fa-leaf"></i>&nbsp; Yuyo, en quechua: hierba que siempre vuelve a crecer</p>
-      <h1 class="serif text-4xl sm:text-5xl md:text-6xl font-semibold text-[var(--ink)]">YuyoChain</h1>
-      <p class="text-[var(--ink-dim)] text-lg mt-1">Nuestra familia, siempre conectada.</p>
-    </div>
-    <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-      <button onclick="openModal('evento')" class="btn btn-primary px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-calendar-plus"></i> Nuevo evento</button>
-      <button onclick="openModal('gasto')" class="btn btn-gold px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-coins"></i> Registrar gasto</button>
-      <button onclick="openModal('memoria')" class="btn btn-ghost px-5 py-3 flex items-center justify-center gap-2 w-full sm:w-auto"><i class="fas fa-images"></i> Memoria</button>
-    </div>
+  <!-- Header persistente -->
+  <header class="flex items-center justify-between mb-6">
+    <span class="serif text-xl sm:text-2xl font-semibold flex items-center gap-2">
+      <svg viewBox="0 0 48 48" width="28" height="28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="logoGradHeader" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--sage)"/>
+            <stop offset="1" stop-color="var(--gold)"/>
+          </linearGradient>
+        </defs>
+        <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#logoGradHeader)" stroke-width="2.5" opacity="0.65"/>
+        <path d="M24 39 C24 30 24 21 24 13" stroke="url(#logoGradHeader)" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#logoGradHeader)"/>
+        <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#logoGradHeader)" opacity="0.85"/>
+      </svg>
+      YuyoChain
+    </span>
+    <button id="btnInicio" onclick="irInicio()" class="btn btn-ghost px-4 py-2 flex items-center gap-2 hidden"><i class="fas fa-house"></i> Inicio</button>
   </header>
 
-  <!-- Familia -->
-  <section class="mb-10">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="serif text-2xl font-medium flex items-center gap-3"><i class="fas fa-seedling text-[var(--sage)]"></i> Nuestra familia</h2>
-      <button onclick="openModal('familiar')" class="text-sm text-[var(--sage-soft)] hover:text-[var(--gold-soft)] font-medium"><i class="fas fa-pen"></i> Editar</button>
-    </div>
-    <div id="familia" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
-  </section>
+  <!-- Indicador de pasos del asistente (solo visible durante Evento → Gasto → Memoria) -->
+  <div id="wizardStepper" class="hidden flex items-center justify-center gap-2 mb-8"></div>
 
-  <div class="grid lg:grid-cols-12 gap-6">
-    <!-- Columna izquierda -->
-    <div class="lg:col-span-7 space-y-8">
-      <section>
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="serif text-2xl font-medium">Próximos eventos</h2>
-          <span id="contadorEventos" class="chip bg-[var(--surface-2)] text-[var(--ink-dim)]"></span>
-        </div>
-        <div id="proximos" class="space-y-4"></div>
-      </section>
-
-      <section>
-        <h2 class="serif text-2xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-calendar-days text-[var(--gold)]"></i> Calendario</h2>
-        <div class="card p-5">
-          <div class="flex items-center justify-between mb-4">
-            <button onclick="cambiarMes(-1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-left"></i></button>
-            <p id="mesActual" class="font-semibold serif text-lg capitalize"></p>
-            <button onclick="cambiarMes(1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-right"></i></button>
-          </div>
-          <div class="grid grid-cols-7 gap-1 text-center text-xs text-[var(--ink-faint)] mb-2">
-            <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span>
-          </div>
-          <div id="grillaCalendario" class="grid grid-cols-7 gap-1"></div>
-        </div>
-      </section>
-
-      <section>
-        <h2 class="serif text-2xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-images text-[var(--terracotta)]"></i> Memorias</h2>
-        <div id="memorias" class="grid grid-cols-3 sm:grid-cols-4 gap-3"></div>
-      </section>
+  <!-- ============ PANEL: INICIO ============ -->
+  <div id="panel-inicio" class="panel panel-activa">
+    <div class="text-center mb-10">
+      <svg viewBox="0 0 48 48" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3" aria-hidden="true">
+        <defs>
+          <linearGradient id="logoGradHero" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--sage)"/>
+            <stop offset="1" stop-color="var(--gold)"/>
+          </linearGradient>
+        </defs>
+        <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#logoGradHero)" stroke-width="2.5" opacity="0.65"/>
+        <path d="M24 39 C24 30 24 21 24 13" stroke="url(#logoGradHero)" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#logoGradHero)"/>
+        <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#logoGradHero)" opacity="0.85"/>
+      </svg>
+      <p class="chip text-[var(--gold-soft)] mb-2 inline-block"><i class="fas fa-leaf"></i>&nbsp; Yuyo, en quechua: hierba que siempre vuelve a crecer</p>
+      <h1 class="serif text-4xl sm:text-5xl font-semibold text-[var(--ink)]">YuyoChain</h1>
+      <p class="text-[var(--ink-dim)] text-lg mt-1">Nuestra familia, siempre conectada.</p>
     </div>
 
-    <!-- Sidebar -->
-    <div class="lg:col-span-5 space-y-6">
+    <h3 class="serif text-base font-medium text-center text-[var(--ink-dim)] mb-4">Acciones rápidas</h3>
+    <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mb-12">
+      <button class="glass-btn principal" style="--glow:var(--sage)" onclick="iniciarAsistente('evento')">
+        <i class="fas fa-calendar-plus"></i><span class="glass-label">Evento</span>
+      </button>
+      <button class="glass-btn principal" style="--glow:var(--gold)" onclick="iniciarAsistente('gasto')">
+        <i class="fas fa-coins"></i><span class="glass-label">Gasto</span>
+      </button>
+      <button class="glass-btn principal" style="--glow:var(--terracotta)" onclick="iniciarAsistente('memoria')">
+        <i class="fas fa-images"></i><span class="glass-label">Memoria</span>
+      </button>
+    </div>
+
+    <h3 class="serif text-base font-medium text-center text-[var(--ink-dim)] mb-4">Explorar</h3>
+    <div class="grid grid-cols-3 sm:grid-cols-5 gap-3 max-w-3xl mx-auto">
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-seedling"></i><span class="glass-label">Familia</span></button>
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar-days"></i><span class="glass-label">Calendario</span></button>
+      <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Gastos del hogar</span></button>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: EVENTO (paso 1) ============ -->
+  <div id="panel-evento" class="panel">
+    <div class="max-w-md mx-auto">
+      <h2 class="serif text-3xl font-medium mb-1 text-center">Nuevo evento</h2>
+      <p class="text-[var(--ink-faint)] text-center mb-6">Agrega una fecha importante para la familia</p>
+      <div class="card p-6 space-y-3">
+        <input id="ev-titulo" placeholder="¿Qué evento es?">
+        <input id="ev-fecha" type="date">
+        <input id="ev-emoji" placeholder="Emoji (opcional)" value="🎉">
+        <button onclick="guardarEvento()" class="btn btn-primary w-full py-3 mt-2">Guardar y continuar</button>
+        <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
+      </div>
+    </div>
+    <div class="max-w-2xl mx-auto mt-10">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="serif text-xl font-medium">Próximos eventos</h3>
+        <span id="contadorEventos" class="chip bg-[var(--surface-2)] text-[var(--ink-dim)]"></span>
+      </div>
+      <div id="proximos" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: GASTO (paso 2) ============ -->
+  <div id="panel-gasto" class="panel">
+    <div class="max-w-md mx-auto">
+      <h2 class="serif text-3xl font-medium mb-1 text-center">Registrar gasto</h2>
+      <p class="text-[var(--ink-faint)] text-center mb-6">Se reparte automáticamente entre quienes elijas</p>
+      <div class="card p-6 space-y-3">
+        <input id="g-desc" placeholder="Descripción del gasto">
+        <input id="g-monto" type="number" placeholder="Monto ($)">
+        <select id="g-pago"></select>
+        <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
+        <div id="g-participantes" class="flex flex-wrap gap-2"></div>
+        <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Adjuntar boleta (opcional, <span id="g-boleta-contador"></span>)</p>
+        <input id="g-boleta" type="file" accept="image/*">
+        <button onclick="guardarGasto()" class="btn btn-gold w-full py-3 mt-2">Guardar y continuar</button>
+        <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
+      </div>
+    </div>
+    <div class="max-w-2xl mx-auto mt-10">
       <div class="card p-6">
         <h3 class="serif text-xl font-medium mb-1">Balance familiar</h3>
         <p class="text-sm text-[var(--ink-faint)] mb-4">Reparto automático de gastos compartidos</p>
@@ -133,28 +218,107 @@
           <div id="historialGastos" class="mt-3 space-y-2 max-h-48 overflow-y-auto scrollbar-thin pr-1"></div>
         </details>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: MEMORIA (paso 3) ============ -->
+  <div id="panel-memoria" class="panel">
+    <div class="max-w-md mx-auto">
+      <h2 class="serif text-3xl font-medium mb-1 text-center">Agregar memoria</h2>
+      <p class="text-[var(--ink-faint)] text-center mb-6">Guarda una foto de este momento</p>
+      <div class="card p-6 space-y-3">
+        <input id="m-titulo" placeholder="¿Qué recuerdas de este momento?">
+        <input id="m-foto" type="file" accept="image/*">
+        <button onclick="guardarMemoria()" class="btn btn-gold w-full py-3 mt-2">Guardar y finalizar</button>
+        <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
+      </div>
+    </div>
+    <div class="max-w-3xl mx-auto mt-10">
+      <h3 class="serif text-xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-images text-[var(--terracotta)]"></i> Memorias guardadas</h3>
+      <div id="memorias" class="grid grid-cols-3 sm:grid-cols-4 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: RESUMEN (final del asistente) ============ -->
+  <div id="panel-resumen" class="panel">
+    <div class="max-w-md mx-auto text-center">
+      <i class="fas fa-circle-check text-4xl text-[var(--good)] mb-3"></i>
+      <h2 class="serif text-3xl font-medium mb-1">¡Listo!</h2>
+      <p class="text-[var(--ink-faint)] mb-6">Esto es lo que se hizo en esta vuelta:</p>
+      <div id="listaResumen" class="space-y-2 text-left mb-6"></div>
+      <div class="flex gap-2">
+        <button onclick="iniciarAsistente('evento')" class="btn btn-ghost flex-1 py-3">Hacer otra vuelta</button>
+        <button onclick="irInicio()" class="btn btn-primary flex-1 py-3"><i class="fas fa-house"></i> Inicio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: FAMILIA ============ -->
+  <div id="panel-familia" class="panel">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="serif text-2xl font-medium flex items-center gap-3"><i class="fas fa-seedling text-[var(--sage)]"></i> Nuestra familia</h2>
+      <button onclick="openModal('familiar')" class="text-sm text-[var(--sage-soft)] hover:text-[var(--gold-soft)] font-medium"><i class="fas fa-pen"></i> Editar</button>
+    </div>
+    <div id="familia" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+  </div>
+
+  <!-- ============ PANEL: CALENDARIO ============ -->
+  <div id="panel-calendario" class="panel">
+    <div class="max-w-xl mx-auto">
+      <h2 class="serif text-2xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-calendar-days text-[var(--gold)]"></i> Calendario</h2>
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="cambiarMes(-1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-left"></i></button>
+          <p id="mesActual" class="font-semibold serif text-lg capitalize"></p>
+          <button onclick="cambiarMes(1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-xs text-[var(--ink-faint)] mb-2">
+          <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span>
+        </div>
+        <div id="grillaCalendario" class="grid grid-cols-7 gap-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: MERCADO ============ -->
+  <div id="panel-mercado" class="panel">
+    <div class="max-w-xl mx-auto space-y-4">
+      <h2 class="serif text-2xl font-medium text-center mb-2"><i class="fas fa-store text-[var(--terracotta)]"></i> Mercado</h2>
 
       <div class="card p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
-          <h3 class="serif text-xl font-medium flex items-center gap-2"><i class="fas fa-store text-[var(--terracotta)]"></i> Mercado</h3>
-          <p class="text-sm text-[var(--ink-faint)] mt-1">Nuestra tienda familiar, YuyoShop</p>
+          <h3 class="serif text-xl font-medium flex items-center gap-2"><i class="fas fa-leaf text-[var(--sage)]"></i> YuyoShop</h3>
+          <p class="text-sm text-[var(--ink-faint)] mt-1">Nuestra tienda familiar</p>
         </div>
         <a href="https://yuyoshop.pages.dev/" target="_blank" rel="noopener" class="btn btn-gold px-5 py-2.5 flex items-center justify-center gap-2 flex-shrink-0">
           <i class="fas fa-arrow-up-right-from-square"></i> Ir a la tienda
         </a>
       </div>
 
-      <div>
-        <h3 class="serif text-xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-square-poll-vertical text-[var(--sage)]"></i> Propuestas en votación</h3>
-        <div id="votaciones" class="space-y-4"></div>
-        <button onclick="openModal('votacion')" class="mt-3 w-full btn btn-ghost py-2.5 text-sm"><i class="fas fa-plus"></i> Nueva propuesta</button>
+      <div class="card p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="serif text-xl font-medium flex items-center gap-2"><i class="fas fa-cake-candles text-[var(--terracotta)]"></i> DTitan Party</h3>
+          <p class="text-sm text-[var(--ink-faint)] mt-1">Tortas, eventos y más</p>
+        </div>
+        <a href="https://dtitanparty.party/vibrant/#productos" target="_blank" rel="noopener" class="btn btn-primary px-5 py-2.5 flex items-center justify-center gap-2 flex-shrink-0">
+          <i class="fas fa-arrow-up-right-from-square"></i> Ir a la tienda
+        </a>
       </div>
     </div>
   </div>
 
-  <!-- Gastos del hogar: zona aparte, protegida con clave -->
-  <section id="seccionGastosHogar" class="mt-12 pt-8" style="border-top:1px dashed var(--line);">
-    <div class="rounded-3xl p-6 md:p-7" style="background:var(--bg-soft); border:1px solid var(--line);">
+  <!-- ============ PANEL: VOTACIONES ============ -->
+  <div id="panel-votaciones" class="panel">
+    <div class="max-w-xl mx-auto">
+      <h3 class="serif text-xl font-medium mb-4 flex items-center gap-2"><i class="fas fa-square-poll-vertical text-[var(--sage)]"></i> Propuestas en votación</h3>
+      <div id="votaciones" class="space-y-4"></div>
+      <button onclick="openModal('votacion')" class="mt-3 w-full btn btn-ghost py-2.5 text-sm"><i class="fas fa-plus"></i> Nueva propuesta</button>
+    </div>
+  </div>
+
+  <!-- ============ PANEL: GASTOS DEL HOGAR ============ -->
+  <div id="panel-gastohogar" class="panel">
+    <div class="max-w-2xl mx-auto rounded-3xl p-6 md:p-7" style="background:var(--bg-soft); border:1px solid var(--line);">
       <div class="flex items-center justify-between mb-1">
         <h3 class="serif text-xl font-medium flex items-center gap-2"><i class="fas fa-house-chimney text-[var(--gold)]"></i> Gastos del hogar</h3>
         <div id="accionesGastosHogar" class="flex items-center gap-3 text-sm"></div>
@@ -162,7 +326,8 @@
       <p class="text-sm text-[var(--ink-faint)] mb-4">Gastos fijos mensuales del hogar — limpieza, internet, otros. No se reparten entre la familia, son aparte del balance compartido.</p>
       <div id="gastosHogarBody"></div>
     </div>
-  </section>
+  </div>
+
 </div>
 
 <!-- Modal genérico -->
@@ -725,33 +890,6 @@ function openModal(tipo){
   back.style.display='flex';
   if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
 
-  if(tipo==='evento'){
-    c.innerHTML = `
-      <h3 class="serif text-2xl mb-4">Nuevo evento</h3>
-      <div class="space-y-3">
-        <input id="ev-titulo" placeholder="¿Qué evento es?">
-        <input id="ev-fecha" type="date" value="${addDays(7)}">
-        <input id="ev-emoji" placeholder="Emoji (opcional)" value="🎉">
-        <button onclick="guardarEvento()" class="btn btn-primary w-full py-3 mt-2">Guardar evento</button>
-      </div>`;
-  }
-  if(tipo==='gasto'){
-    c.innerHTML = `
-      <h3 class="serif text-2xl mb-4">Registrar gasto</h3>
-      <div class="space-y-3">
-        <input id="g-desc" placeholder="Descripción del gasto">
-        <input id="g-monto" type="number" placeholder="Monto ($)">
-        <select id="g-pago">${DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('')}</select>
-        <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
-        <div class="flex flex-wrap gap-2">
-          ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
-            <input type="checkbox" class="g-part" value="${f.id}" checked style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('')}
-        </div>
-        <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Adjuntar boleta (opcional, ${contarBoletas()}/${TOPE_BOLETAS} usadas)</p>
-        <input id="g-boleta" type="file" accept="image/*">
-        <button onclick="guardarGasto()" class="btn btn-gold w-full py-3 mt-2">Registrar gasto</button>
-      </div>`;
-  }
   if(tipo==='familiar'){
     c.innerHTML = `
       <h3 class="serif text-2xl mb-4">Editar familia</h3>
@@ -780,15 +918,96 @@ function openModal(tipo){
       </div>`;
   }
   if(tipo==='gastoFijo'){ abrirFormGastoFijo(null); return; }
-  if(tipo==='memoria'){
-    c.innerHTML = `
-      <h3 class="serif text-2xl mb-4">Agregar memoria</h3>
-      <div class="space-y-3">
-        <input id="m-titulo" placeholder="¿Qué recuerdas de este momento?">
-        <input id="m-foto" type="file" accept="image/*">
-        <button onclick="guardarMemoria()" class="btn btn-gold w-full py-3 mt-2">Guardar recuerdo</button>
-      </div>`;
+}
+
+/* ---------- Sistema de paneles + asistente guiado ---------- */
+const ORDEN_ASISTENTE = ['evento', 'gasto', 'memoria'];
+let panelActual = 'inicio';
+let sesionRealizado = [];
+
+function mostrarPanel(nombre){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('panel-activa'));
+  const el = document.getElementById('panel-'+nombre);
+  if(el) el.classList.add('panel-activa');
+  panelActual = nombre;
+  actualizarStepper(nombre);
+  document.getElementById('btnInicio').classList.toggle('hidden', nombre==='inicio');
+  window.scrollTo({top:0, behavior:'smooth'});
+
+  if(nombre==='evento'){ poblarFormEvento(); renderEventos(); }
+  if(nombre==='gasto'){ poblarFormGasto(); renderBalance(); }
+  if(nombre==='memoria'){ poblarFormMemoria(); renderMemorias(); }
+  if(nombre==='familia'){ renderFamilia(); }
+  if(nombre==='calendario'){ renderCalendario(); }
+  if(nombre==='votaciones'){ renderVotaciones(); }
+  if(nombre==='gastohogar'){ renderGastosHogarEstado(); }
+  if(nombre==='resumen'){ renderResumen(); }
+}
+function irInicio(){ mostrarPanel('inicio'); }
+function iniciarAsistente(pasoInicial){
+  sesionRealizado = [];
+  mostrarPanel(pasoInicial);
+}
+function avanzarAsistente(textoResumen){
+  if(textoResumen) sesionRealizado.push(textoResumen);
+  const idx = ORDEN_ASISTENTE.indexOf(panelActual);
+  if(idx > -1 && idx < ORDEN_ASISTENTE.length - 1){ mostrarPanel(ORDEN_ASISTENTE[idx+1]); }
+  else { mostrarPanel('resumen'); }
+}
+function saltarPasoAsistente(){ avanzarAsistente(null); }
+
+function actualizarStepper(nombre){
+  const cont = document.getElementById('wizardStepper');
+  const idxActivo = ORDEN_ASISTENTE.indexOf(nombre);
+  if(idxActivo === -1 && nombre !== 'resumen'){ cont.classList.add('hidden'); return; }
+  cont.classList.remove('hidden');
+  const pasos = [
+    { key:'evento', label:'Evento', icon:'fa-calendar-plus' },
+    { key:'gasto', label:'Gasto', icon:'fa-coins' },
+    { key:'memoria', label:'Memoria', icon:'fa-images' },
+  ];
+  cont.innerHTML = pasos.map((p,i)=>{
+    let estado = 'pendiente';
+    if(nombre==='resumen' || i < idxActivo) estado = 'hecho';
+    else if(i === idxActivo) estado = 'activo';
+    return `
+      <div class="paso-stepper paso-${estado}">
+        <div class="paso-circulo"><i class="fas ${estado==='hecho'?'fa-check':p.icon}"></i></div>
+        <span class="paso-texto">${p.label}</span>
+      </div>
+      ${i<pasos.length-1?'<div class="paso-linea"></div>':''}
+    `;
+  }).join('');
+}
+function renderResumen(){
+  const cont = document.getElementById('listaResumen');
+  if(!sesionRealizado.length){
+    cont.innerHTML = `<p class="text-[var(--ink-faint)] text-center py-4">No se completó ningún paso esta vez.</p>`;
+    return;
   }
+  cont.innerHTML = sesionRealizado.map(t=>`
+    <div class="flex items-center gap-3 bg-[var(--bg-soft)] rounded-xl px-4 py-3">
+      <i class="fas fa-circle-check text-[var(--good)]"></i><span class="text-sm">${t}</span>
+    </div>`).join('');
+}
+
+function poblarFormEvento(){
+  document.getElementById('ev-titulo').value = '';
+  document.getElementById('ev-fecha').value = addDays(7);
+  document.getElementById('ev-emoji').value = '🎉';
+}
+function poblarFormGasto(){
+  document.getElementById('g-pago').innerHTML = DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('');
+  document.getElementById('g-participantes').innerHTML = DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
+    <input type="checkbox" class="g-part" value="${f.id}" checked style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('');
+  document.getElementById('g-boleta-contador').textContent = `${contarBoletas()}/${TOPE_BOLETAS} usadas`;
+  document.getElementById('g-desc').value = '';
+  document.getElementById('g-monto').value = '';
+  document.getElementById('g-boleta').value = '';
+}
+function poblarFormMemoria(){
+  document.getElementById('m-titulo').value = '';
+  document.getElementById('m-foto').value = '';
 }
 
 function guardarEvento(){
@@ -797,8 +1016,9 @@ function guardarEvento(){
   const emoji = document.getElementById('ev-emoji').value || '🎉';
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
   DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false });
-  guardar(); renderEventos(); renderCalendario(); closeModal();
+  guardar(); renderEventos(); renderCalendario();
   toast(`Evento "${titulo}" agregado 📅`);
+  avanzarAsistente(`📅 Evento creado: "${titulo}"`);
 }
 async function guardarGasto(){
   const descripcion = document.getElementById('g-desc').value.trim();
@@ -813,8 +1033,9 @@ async function guardarGasto(){
     else { try{ boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); } }
   }
   DB.gastos.push({ id:Date.now(), descripcion, monto, pagadoPor, participantes, boleta, fecha:new Date().toISOString().split('T')[0] });
-  guardar(); renderBalance(); closeModal();
+  guardar(); renderBalance();
   toast('Gasto registrado y repartido ✅');
+  avanzarAsistente(`💰 Gasto registrado: "${descripcion}" — $${monto.toLocaleString()}`);
 }
 function agregarFamiliar(){
   const nombre = document.getElementById('f-nombre').value.trim();
@@ -844,8 +1065,9 @@ async function guardarMemoria(){
   try{
     const img = await imagenAWebp(file, 720, 0.85);
     DB.memorias.push({ id:Date.now(), titulo, img });
-    guardar(); renderMemorias(); closeModal();
+    guardar(); renderMemorias();
     toast('Recuerdo guardado (.webp) 📷');
+    avanzarAsistente(`📷 Memoria guardada: "${titulo}"`);
   }catch(err){
     toast('No se pudo procesar la imagen', 'bad');
   }
@@ -854,14 +1076,10 @@ async function guardarMemoria(){
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
 
 /* ---------- Init ---------- */
-function renderTodo(){
-  renderFamilia(); renderEventos(); renderCalendario(); renderBalance(); renderVotaciones(); renderMemorias();
-  renderGastosHogarEstado();
-}
 (async function iniciar(){
   const overlay = document.getElementById('cargaInicial');
   await cargarEstado();
-  renderTodo();
+  mostrarPanel('inicio');
   if(overlay) overlay.remove();
 })();
 </script>
