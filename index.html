@@ -694,8 +694,11 @@ function renderBalance(){
 }
 /* ---------- Boletas adjuntas (tope de 30 en toda la app) ---------- */
 const TOPE_BOLETAS = 30;
+function boletasDeFijo(g){ return g.boletas || (g.boleta ? [g.boleta] : []); }
 function contarBoletas(){
-  return DB.gastos.filter(g=>g.boleta).length + DB.gastosFijos.filter(g=>g.boleta).length;
+  const enGastos = DB.gastos.filter(g=>g.boleta).length;
+  const enFijos = DB.gastosFijos.reduce((sum,g)=> sum + boletasDeFijo(g).length, 0);
+  return enGastos + enFijos;
 }
 function descargarBoleta(dataUrl, nombre){
   const a = document.createElement('a');
@@ -855,9 +858,10 @@ function renderGastosFijos(){
         </div>
       </div>
       <div class="flex flex-col gap-1.5 flex-shrink-0">
-        ${g.boleta
-          ? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>`
-          : `<button onclick="adjuntarBoletaRapidaFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Adjuntar boleta"><i class="fas fa-paperclip text-xs"></i></button>`}
+        <button onclick="verBoletasFijo(${g.id})" class="icon-btn relative text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Boletas (${boletasDeFijo(g).length}/4)">
+          <i class="fas fa-receipt text-xs"></i>
+          ${boletasDeFijo(g).length ? `<span class="absolute -top-1 -right-1 text-[8px] leading-none bg-[var(--gold)] text-[#241404] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">${boletasDeFijo(g).length}</span>` : ''}
+        </button>
         <button onclick="editarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]"><i class="fas fa-pen text-xs"></i></button>
         <button onclick="eliminarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
       </div>
@@ -870,22 +874,64 @@ function alternarPagadoFijo(id){
   guardar(); renderGastosFijos();
   toast(g.pagado ? `${g.nombre} marcado como pagado ✅` : `${g.nombre} marcado como pendiente`);
 }
-function adjuntarBoletaRapidaFijo(id){
+function verBoletasFijo(id){
+  const back = document.getElementById('modalBackdrop');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  renderModalBoletasFijo(id);
+}
+function renderModalBoletasFijo(id){
   const g = DB.gastosFijos.find(x=>x.id===id);
   if(!g) return;
-  if(contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
+  const lista = boletasDeFijo(g);
+  const c = document.getElementById('modalContenido');
+  c.innerHTML = `
+    <h3 class="serif text-2xl mb-1">Boletas</h3>
+    <p class="text-sm text-[var(--ink-faint)] mb-4">${g.nombre} · ${lista.length}/4</p>
+    <div class="space-y-2 mb-4">
+      ${lista.length ? lista.map((b,i)=>`
+        <div class="flex items-center justify-between bg-[var(--bg-soft)] rounded-xl px-3 py-2">
+          <span class="text-sm flex items-center gap-2"><i class="fas fa-receipt text-[var(--gold-soft)]"></i> Boleta ${i+1}</span>
+          <div class="flex items-center gap-1">
+            <button onclick="descargarBoleta('${b}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}-${i+1}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar"><i class="fas fa-download text-xs"></i></button>
+            <button onclick="eliminarBoletaFijo(${g.id}, ${i})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
+          </div>
+        </div>
+      `).join('') : `<p class="text-sm text-[var(--ink-faint)]">Sin boletas adjuntas todavía.</p>`}
+    </div>
+    ${lista.length < 4
+      ? `<button onclick="agregarBoletaFijo(${g.id})" class="btn btn-primary w-full py-3"><i class="fas fa-paperclip"></i> Agregar boleta</button>`
+      : `<p class="text-xs text-[var(--ink-faint)] text-center mb-2">Máximo de 4 boletas por gasto alcanzado.</p>`}
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 mt-2 text-sm">Cerrar</button>
+  `;
+}
+function agregarBoletaFijo(id){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  if(!g.boletas){ g.boletas = g.boleta ? [g.boleta] : []; delete g.boleta; }
+  if(g.boletas.length >= 4){ toast('Ya tiene el máximo de 4 boletas', 'bad'); return; }
+  if(contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas en toda la app. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
   input.onchange = async () => {
     const file = input.files[0];
     if(!file) return;
     try{
-      g.boleta = await imagenAWebp(file, 1000, 0.8);
-      guardar(); renderGastosFijos();
+      const webp = await imagenAWebp(file, 1000, 0.8);
+      g.boletas.push(webp);
+      guardar(); renderGastosFijos(); renderModalBoletasFijo(id);
       toast('Boleta adjuntada (.webp) 🧾');
     }catch(e){ toast('No se pudo procesar la boleta', 'bad'); }
   };
   input.click();
+}
+function eliminarBoletaFijo(id, index){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  if(!g.boletas){ g.boletas = g.boleta ? [g.boleta] : []; delete g.boleta; }
+  g.boletas.splice(index, 1);
+  guardar(); renderGastosFijos(); renderModalBoletasFijo(id);
+  toast('Boleta eliminada 🗑️');
 }
 function abrirFormGastoFijo(id){
   const g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
@@ -939,11 +985,7 @@ function abrirFormGastoFijo(id){
         <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="gf-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
       </div>
 
-      <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Boleta adjunta ${g?.boleta? '(ya tiene una — subir otra la reemplaza)':`(opcional, ${contarBoletas()}/${TOPE_BOLETAS} usadas)`}</p>
-      <div class="flex items-center gap-2">
-        <input id="gf-boleta" type="file" accept="image/*" class="flex-1">
-        ${g?.boleta? `<button type="button" onclick="descargarBoleta('${g.boleta}','boleta')" class="btn-ghost btn px-3 py-2 flex-shrink-0" title="Descargar boleta actual"><i class="fas fa-download"></i></button>` : ''}
-      </div>
+      <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> ${g? 'Las boletas se administran con el botón 🧾 de la lista.' : 'Podrás adjuntar boletas (hasta 4) después de guardar, con el botón 🧾.'}</p>
       <button onclick="guardarGastoFijo(${g? g.id : 'null'})" class="btn btn-primary w-full py-3 mt-2">${g?'Guardar cambios':'Agregar gasto'}</button>
     </div>`;
   if(!modoIgual) actualizarTotalPersonalizado();
@@ -967,7 +1009,6 @@ async function guardarGastoFijo(id){
   const nombre = document.getElementById('gf-nombre').value.trim();
   const categoria = document.getElementById('gf-categoria').value;
   const modo = document.querySelector('input[name="gf-modo"]:checked').value;
-  const archivo = document.getElementById('gf-boleta').files[0];
 
   let monto, participantes, aportes = null;
   if(modo === 'igual'){
@@ -989,18 +1030,11 @@ async function guardarGastoFijo(id){
   if(!nombre || isNaN(monto) || monto<=0){ toast('Revisa el nombre y los montos', 'bad'); return; }
 
   let g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
-  if(archivo){
-    if(!(g && g.boleta) && contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
-  }
-  let boleta = g ? g.boleta : null;
-  if(archivo){
-    try{ boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); return; }
-  }
   if(g){
-    g.nombre=nombre; g.categoria=categoria; g.monto=monto; g.participantes=participantes; g.aportes=aportes; g.boleta=boleta; delete g.responsable;
+    g.nombre=nombre; g.categoria=categoria; g.monto=monto; g.participantes=participantes; g.aportes=aportes; delete g.responsable;
     toast('Gasto del hogar actualizado ✏️');
   } else {
-    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, monto, participantes, aportes, boleta, pagado:false });
+    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, monto, participantes, aportes, boletas:[], pagado:false });
     toast('Gasto del hogar agregado 🧹');
   }
   guardar(); renderGastosFijos(); closeModal();
