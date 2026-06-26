@@ -97,6 +97,29 @@
   <p style="color:var(--ink-dim); font-family:'Inter',sans-serif; font-size:.9rem;">Cargando YuyoChain…</p>
 </div>
 
+<!-- Candado de acceso a la app -->
+<div id="appLock" style="display:none; position:fixed; inset:0; z-index:150; background:var(--bg); flex-direction:column; align-items:center; justify-content:center; gap:1.25rem; padding:1.5rem;">
+  <svg viewBox="0 0 48 48" width="52" height="52" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="lgLock" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--sage)"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs>
+    <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#lgLock)" stroke-width="2.5" opacity="0.65"/>
+    <path d="M24 39 C24 30 24 21 24 13" stroke="url(#lgLock)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#lgLock)"/>
+    <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#lgLock)" opacity="0.85"/>
+  </svg>
+  <div class="text-center">
+    <h1 style="font-family:'Fraunces',serif; font-size:1.8rem; font-weight:600; color:var(--ink);">YuyoChain</h1>
+    <p style="color:var(--ink-dim); font-size:.9rem; margin-top:.25rem;">Ingresa la clave para continuar</p>
+  </div>
+  <div style="width:100%; max-width:280px; display:flex; flex-direction:column; gap:.75rem;">
+    <input id="appPinInput" type="password" placeholder="Clave de acceso"
+      style="text-align:center; font-size:1.1rem; letter-spacing:.2em;"
+      onkeydown="if(event.key==='Enter') desbloquearApp()">
+    <button onclick="desbloquearApp()" class="btn btn-primary w-full py-3" style="font-size:1rem;">
+      <i class="fas fa-unlock-alt"></i> Entrar
+    </button>
+  </div>
+</div>
+
 <div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 relative z-10">
 
   <!-- Header persistente -->
@@ -116,7 +139,10 @@
       </svg>
       YuyoChain
     </span>
-    <button id="btnInicio" onclick="irInicio()" class="btn btn-ghost px-4 py-2 flex items-center gap-2 hidden"><i class="fas fa-house"></i> Inicio</button>
+    <div class="flex items-center gap-2">
+      <button id="btnInicio" onclick="irInicio()" class="btn btn-ghost px-4 py-2 flex items-center gap-2 hidden"><i class="fas fa-house"></i> Inicio</button>
+      <button onclick="abrirConfigApp()" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Configurar candado de acceso"><i class="fas fa-shield-halved text-[var(--ink-faint)]"></i></button>
+    </div>
   </header>
 
   <!-- Indicador de pasos del asistente (solo visible durante Evento → Gasto → Memoria) -->
@@ -398,7 +424,7 @@ const DEFAULTS = {
     { id:1, nombre:"Internet", categoria:"internet", monto:150, participantes:[1,2,3], pagado:false },
     { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", monto:80, participantes:[2], pagado:false },
   ],
-  config: { pinHogar: null },
+  config: { pinHogar: null, pinApp: null },
 };
 
 const DB = JSON.parse(JSON.stringify(DEFAULTS));
@@ -467,6 +493,7 @@ function renderGastosHogarEstado(){
   }
 
   acciones.innerHTML = `
+    <button onclick="compartirGastosHogarWhatsApp()" class="text-[var(--ink-faint)] hover:text-[#25d366]" title="Compartir por WhatsApp"><i class="fab fa-whatsapp"></i></button>
     <button onclick="configurarPinHogar()" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Cambiar clave"><i class="fas fa-key"></i></button>
     <button onclick="bloquearGastosHogar()" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Bloquear de nuevo"><i class="fas fa-lock"></i></button>
     <button onclick="openModal('gastoFijo')" class="text-sm text-[var(--sage-soft)] hover:text-[var(--gold-soft)] font-medium"><i class="fas fa-plus"></i> Agregar</button>
@@ -1585,6 +1612,111 @@ async function guardarMemoria(){
 
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
 
+/* ---------- Candado de acceso a la app ---------- */
+function verificarAppLock(){
+  if(!DB.config || !DB.config.pinApp) return;
+  if(sessionStorage.getItem('yc_app_ok') === '1') return;
+  document.getElementById('appLock').style.display = 'flex';
+  setTimeout(()=>{ const i=document.getElementById('appPinInput'); if(i) i.focus(); }, 100);
+}
+function desbloquearApp(){
+  const input = document.getElementById('appPinInput');
+  if(!input) return;
+  if(input.value === DB.config.pinApp){
+    sessionStorage.setItem('yc_app_ok', '1');
+    document.getElementById('appLock').style.display = 'none';
+    toast('¡Bienvenido! 🌿');
+  } else {
+    toast('Clave incorrecta', 'bad');
+    input.value = ''; input.focus();
+  }
+}
+function abrirConfigApp(){
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const tiene = !!(DB.config && DB.config.pinApp);
+  c.innerHTML = `
+    <h3 class="serif text-2xl mb-1">Candado de acceso</h3>
+    <p class="text-sm text-[var(--ink-faint)] mb-5">Protege toda la app con una clave. Se pedirá cada vez que se abra en un nuevo navegador o dispositivo.</p>
+    ${tiene ? `
+      <div class="bg-[var(--bg-soft)] rounded-xl p-3 mb-4 flex items-center gap-3">
+        <i class="fas fa-lock text-[var(--sage)]"></i>
+        <span class="text-sm">La app está protegida con clave.</span>
+      </div>
+      <div class="space-y-2">
+        <button onclick="cambiarPinApp()" class="btn btn-primary w-full py-3"><i class="fas fa-key"></i> Cambiar clave</button>
+        <button onclick="quitarPinApp()" class="btn btn-ghost w-full py-3 text-[var(--bad)]"><i class="fas fa-lock-open"></i> Quitar candado</button>
+      </div>` : `
+      <div class="bg-[var(--bg-soft)] rounded-xl p-3 mb-4 flex items-center gap-3">
+        <i class="fas fa-lock-open text-[var(--ink-faint)]"></i>
+        <span class="text-sm text-[var(--ink-faint)]">Sin protección actualmente.</span>
+      </div>
+      <button onclick="activarPinApp()" class="btn btn-primary w-full py-3"><i class="fas fa-lock"></i> Activar candado</button>`}
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 mt-3 text-sm">Cerrar</button>`;
+}
+function activarPinApp(){
+  const nueva = prompt('Crea una clave para proteger la app (mínimo 4 caracteres):');
+  if(nueva === null) return;
+  if(nueva.trim().length < 4){ toast('La clave debe tener al menos 4 caracteres', 'bad'); return; }
+  DB.config.pinApp = nueva.trim();
+  sessionStorage.setItem('yc_app_ok', '1');
+  guardar(); closeModal();
+  toast('Candado activado 🔒 Se pedirá la clave al abrir la app');
+}
+function cambiarPinApp(){
+  const actual = prompt('Escribe la clave actual:');
+  if(actual === null) return;
+  if(actual !== DB.config.pinApp){ toast('Clave incorrecta', 'bad'); return; }
+  const nueva = prompt('Nueva clave (mínimo 4 caracteres):');
+  if(nueva === null) return;
+  if(nueva.trim().length < 4){ toast('La clave debe tener al menos 4 caracteres', 'bad'); return; }
+  DB.config.pinApp = nueva.trim();
+  guardar(); closeModal();
+  toast('Clave actualizada 🔑');
+}
+function quitarPinApp(){
+  const actual = prompt('Escribe la clave actual para confirmar que la quieres eliminar:');
+  if(actual === null) return;
+  if(actual !== DB.config.pinApp){ toast('Clave incorrecta', 'bad'); return; }
+  DB.config.pinApp = null;
+  sessionStorage.removeItem('yc_app_ok');
+  guardar(); closeModal();
+  toast('Candado eliminado. La app ya no requiere clave.', 'warn');
+}
+
+/* ---------- WhatsApp share para gastos del hogar ---------- */
+function compartirGastosHogarWhatsApp(){
+  const mes = new Date().toLocaleDateString('es-ES',{month:'long', year:'numeric'});
+  const iconos = { limpieza:'🧹', internet:'📶', otro:'📦' };
+  let msg = `🏠 *Gastos del hogar — ${mes}*\n\n`;
+  DB.gastosFijos.forEach(g=>{
+    const icono = iconos[g.categoria]||'📦';
+    const estado = g.pagado ? '✅' : '⬜';
+    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+    const participantes = tieneAportes
+      ? Object.keys(g.aportes).map(Number)
+      : (g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id));
+    msg += `${estado} ${icono} *${g.nombre}* — S/${g.monto.toLocaleString()}\n`;
+    if(tieneAportes){
+      participantes.forEach(pid=>{
+        msg += `   • ${nombrePorId(pid)}: S/${(+g.aportes[pid]).toFixed(2)}\n`;
+      });
+    } else {
+      const ppp = (g.monto/participantes.length).toFixed(2);
+      msg += `   S/${ppp} c/u (${participantes.map(p=>nombrePorId(p)).join(', ')})\n`;
+    }
+  });
+  const total = DB.gastosFijos.reduce((s,g)=>s+g.monto, 0);
+  const pagado = DB.gastosFijos.filter(g=>g.pagado).reduce((s,g)=>s+g.monto, 0);
+  const pendiente = total - pagado;
+  msg += `\n💰 *Total: S/${total.toLocaleString()}*`;
+  if(pendiente > 0) msg += ` · Pendiente: S/${pendiente.toLocaleString()}`;
+  msg += `\n🌿 _YuyoChain • Familia Unida_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 /* ---------- Recordatorios con Notification API ---------- */
 function verificarRecordatorios(){
   if(!('Notification' in window)) return;
@@ -1685,6 +1817,9 @@ function renderResumenAnual(){
 (async function iniciar(){
   const overlay = document.getElementById('cargaInicial');
   await cargarEstado();
+  if(!DB.config) DB.config = { pinHogar: null, pinApp: null };
+  if(!DB.config.pinApp) DB.config.pinApp = null;
+  verificarAppLock();
   mostrarPanel('inicio');
   verificarRecordatorios();
   if(overlay) overlay.remove();
