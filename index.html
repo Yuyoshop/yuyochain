@@ -535,9 +535,25 @@ function renderFamilia(){
         ${m.nombre}
         <button onclick="renombrarFamiliar(${m.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Editar nombre"><i class="fas fa-pen"></i></button>
       </p>
+      ${m.telefono
+        ? `<a href="https://wa.me/51${m.telefono.replace(/\D/g,'')}" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-1 text-xs mt-1 px-2 py-0.5 rounded-full"
+             style="background:rgba(37,211,102,.12); color:#25d366; border:1px solid rgba(37,211,102,.3);">
+             <i class="fab fa-whatsapp"></i> ${m.telefono}
+           </a>`
+        : `<button onclick="editarTelefonoFamiliar(${m.id})" class="text-[9px] text-[var(--ink-faint)] hover:text-[var(--sage-soft)] mt-1 block w-full">+ agregar WhatsApp</button>`}
       <div class="absolute bottom-0 left-0 right-0 h-1" style="background:${m.color}"></div>
     </div>
   `).join('');
+}
+function editarTelefonoFamiliar(id){
+  const m = DB.familia.find(f=>f.id===id);
+  if(!m) return;
+  const tel = prompt(`Número de WhatsApp de ${m.nombre} (solo dígitos, sin +51):`, m.telefono||'');
+  if(tel===null) return;
+  m.telefono = tel.trim() || null;
+  guardar(); renderFamilia();
+  toast(m.telefono ? `WhatsApp de ${m.nombre} guardado 📱` : `Número eliminado`);
 }
 function imagenAWebp(file, maxSize=480, calidad=0.85){
   return new Promise((resolve, reject)=>{
@@ -1593,14 +1609,15 @@ function renderResumenAnual(){
   const gastosAnio = DB.gastos.filter(g=> g.fecha && g.fecha.startsWith(anio));
   const totalAnio = gastosAnio.reduce((s,g)=>s+g.monto, 0);
 
-  // Por mes
-  const porMes = {};
+  // Por mes — siempre incluir el mes actual aunque no haya gastos
+  const mesActualKey = new Date().toISOString().slice(0,7);
+  const porMes = { [mesActualKey]: 0 };
   gastosAnio.forEach(g=>{
     const mes = g.fecha.slice(0,7);
     porMes[mes] = (porMes[mes]||0) + g.monto;
   });
   const meses = Object.entries(porMes).sort(([a],[b])=>a.localeCompare(b));
-  const maxMes = meses.length ? Math.max(...meses.map(([,v])=>v)) : 1;
+  const maxMes = meses.length ? Math.max(...meses.map(([,v])=>v), 1) : 1;
 
   const mesesHTML = meses.length ? meses.map(([mes,total])=>{
     const label = new Date(mes+'-01').toLocaleDateString('es-ES',{month:'long'});
