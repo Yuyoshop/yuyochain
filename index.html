@@ -855,7 +855,9 @@ function renderGastosFijos(){
         </div>
       </div>
       <div class="flex flex-col gap-1.5 flex-shrink-0">
-        ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
+        ${g.boleta
+          ? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.nombre.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>`
+          : `<button onclick="adjuntarBoletaRapidaFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Adjuntar boleta"><i class="fas fa-paperclip text-xs"></i></button>`}
         <button onclick="editarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]"><i class="fas fa-pen text-xs"></i></button>
         <button onclick="eliminarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
       </div>
@@ -867,6 +869,23 @@ function alternarPagadoFijo(id){
   g.pagado = !g.pagado;
   guardar(); renderGastosFijos();
   toast(g.pagado ? `${g.nombre} marcado como pagado ✅` : `${g.nombre} marcado como pendiente`);
+}
+function adjuntarBoletaRapidaFijo(id){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  if(contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. Elimina alguna para adjuntar nuevas.`, 'bad'); return; }
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if(!file) return;
+    try{
+      g.boleta = await imagenAWebp(file, 1000, 0.8);
+      guardar(); renderGastosFijos();
+      toast('Boleta adjuntada (.webp) 🧾');
+    }catch(e){ toast('No se pudo procesar la boleta', 'bad'); }
+  };
+  input.click();
 }
 function abrirFormGastoFijo(id){
   const g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
@@ -1063,11 +1082,30 @@ function renderMemorias(){
   const div = document.getElementById('memorias');
   if(!DB.memorias.length){ div.innerHTML = `<div class="card p-6 text-center text-[var(--ink-faint)] text-sm col-span-full"><i class="fas fa-camera-retro text-xl mb-2"></i><p>Aún no hay recuerdos guardados.</p></div>`; return; }
   div.innerHTML = DB.memorias.slice().reverse().map(m=>`
-    <div class="card p-1.5 group relative overflow-hidden">
+    <div class="card p-1.5 relative overflow-hidden">
+      <div class="absolute top-1.5 right-1.5 flex gap-1 z-10">
+        <button onclick="editarMemoria(${m.id})" class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(10,12,8,.65); backdrop-filter:blur(2px);" title="Editar"><i class="fas fa-pen text-[9px] text-[var(--gold-soft)]"></i></button>
+        <button onclick="eliminarMemoria(${m.id})" class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(10,12,8,.65); backdrop-filter:blur(2px);" title="Eliminar"><i class="fas fa-trash text-[9px] text-[var(--bad)]"></i></button>
+      </div>
       <img src="${m.img}" class="rounded-2xl w-full h-28 object-cover"/>
       <p class="text-[10px] text-center text-[var(--ink-faint)] mt-1 truncate px-1">${m.titulo}</p>
     </div>
   `).join('');
+}
+function editarMemoria(id){
+  const m = DB.memorias.find(x=>x.id===id);
+  if(!m) return;
+  const nuevo = prompt('Título de la memoria:', m.titulo);
+  if(nuevo===null) return;
+  m.titulo = nuevo.trim() || 'Sin título';
+  guardar(); renderMemorias();
+  toast('Memoria actualizada ✏️');
+}
+function eliminarMemoria(id){
+  if(!confirm('¿Eliminar esta memoria?')) return;
+  DB.memorias = DB.memorias.filter(m=>m.id!==id);
+  guardar(); renderMemorias();
+  toast('Memoria eliminada 🗑️');
 }
 
 /* ---------- Modales ---------- */
@@ -1076,11 +1114,15 @@ function closeModal(){
   document.getElementById('modalBackdrop').style.display='none';
   if(modalAbierto){ modalAbierto = false; history.back(); }
 }
-window.addEventListener('popstate', ()=>{
+window.addEventListener('popstate', (event)=>{
   if(modalAbierto){
     modalAbierto = false;
     document.getElementById('modalBackdrop').style.display='none';
+    return;
   }
+  const estado = event.state;
+  if(estado && estado.panel){ mostrarPanel(estado.panel, true); }
+  else { mostrarPanel('inicio', true); }
 });
 function openModal(tipo){
   const back = document.getElementById('modalBackdrop');
@@ -1123,10 +1165,12 @@ const ORDEN_ASISTENTE = ['evento', 'gasto', 'memoria'];
 let panelActual = 'inicio';
 let sesionRealizado = [];
 
-function mostrarPanel(nombre){
+function mostrarPanel(nombre, fromHistory){
+  const cambioDePanel = nombre !== panelActual;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('panel-activa'));
   const el = document.getElementById('panel-'+nombre);
   if(el) el.classList.add('panel-activa');
+  if(!fromHistory && cambioDePanel){ history.pushState({panel: nombre}, ''); }
   panelActual = nombre;
   actualizarStepper(nombre);
   document.getElementById('btnInicio').classList.toggle('hidden', nombre==='inicio');
