@@ -662,6 +662,9 @@ function renderEventos(){
           <button onclick="completarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Marcar como completado">
             <i class="fas fa-check text-[var(--sage)]"></i>
           </button>
+          <button onclick="eliminarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Eliminar evento">
+            <i class="fas fa-trash text-[var(--ink-faint)] hover:text-[var(--bad)]"></i>
+          </button>
         </div>
       </div>
     </div>`;
@@ -670,6 +673,14 @@ function renderEventos(){
 function completarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(e){ e.completado = true; guardar(); renderEventos(); renderCalendario(); toast(`"${e.titulo}" marcado como completado 🌿`); }
+}
+function eliminarEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  if(!confirm(`¿Eliminar "${e.titulo}"?`)) return;
+  DB.eventos = DB.eventos.filter(x=>x.id!==id);
+  guardar(); renderEventos(); renderCalendario();
+  toast('Evento eliminado 🗑️');
 }
 
 /* ---------- Detalle de evento: tareas + presupuesto + WhatsApp ---------- */
