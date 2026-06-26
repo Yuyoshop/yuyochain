@@ -156,12 +156,13 @@
     </div>
 
     <h3 class="serif text-base font-medium text-center text-[var(--ink-dim)] mb-4">Explorar</h3>
-    <div class="grid grid-cols-3 sm:grid-cols-5 gap-3 max-w-3xl mx-auto">
+    <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 max-w-4xl mx-auto">
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-seedling"></i><span class="glass-label">Familia</span></button>
       <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar-days"></i><span class="glass-label">Calendario</span></button>
       <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
       <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Gastos del hogar</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
     </div>
   </div>
 
@@ -174,6 +175,7 @@
         <input id="ev-titulo" placeholder="¿Qué evento es?">
         <input id="ev-fecha" type="date">
         <input id="ev-emoji" placeholder="Emoji (opcional)" value="🎉">
+        <input id="ev-presupuesto" type="number" min="0" placeholder="Presupuesto estimado (S/) — opcional">
         <button onclick="guardarEvento()" class="btn btn-primary w-full py-3 mt-2">Guardar y continuar</button>
         <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
       </div>
@@ -194,6 +196,7 @@
       <p class="text-[var(--ink-faint)] text-center mb-6">Se reparte automáticamente entre quienes elijas</p>
       <div class="card p-6 space-y-3">
         <input id="g-desc" placeholder="Descripción del gasto">
+        <select id="g-evento"><option value="">Sin evento (gasto general)</option></select>
         <select id="g-pago"></select>
 
         <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
@@ -214,7 +217,7 @@
         <div id="g-bloque-personalizado" class="space-y-2 hidden">
           <p class="text-xs text-[var(--ink-faint)]">Marca quién debe y escribe cuánto debe cada uno:</p>
           <div id="g-aportes-lista" class="space-y-2"></div>
-          <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="g-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+          <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="g-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">S/0.00</span></p>
         </div>
 
         <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Adjuntar boleta (opcional, <span id="g-boleta-contador"></span>)</p>
@@ -228,7 +231,7 @@
         <h3 class="serif text-xl font-medium mb-1">Balance familiar</h3>
         <p class="text-sm text-[var(--ink-faint)] mb-4">Reparto automático de gastos compartidos</p>
         <div id="resumenGasto" class="flex items-baseline gap-2 mb-5">
-          <span class="text-4xl font-bold text-[var(--gold-soft)] mono" id="totalGastado">$0</span>
+          <span class="text-4xl font-bold text-[var(--gold-soft)] mono" id="totalGastado">S/0</span>
           <span class="text-sm text-[var(--ink-faint)]">gastados este año</span>
         </div>
         <div id="deudas" class="space-y-2 mb-5"></div>
@@ -347,6 +350,16 @@
     </div>
   </div>
 
+  <!-- ============ PANEL: RESUMEN ANUAL ============ -->
+  <div id="panel-resumenanual" class="panel">
+    <div class="max-w-xl mx-auto">
+      <h2 class="serif text-2xl font-medium mb-6 flex items-center gap-2">
+        <i class="fas fa-chart-bar text-[var(--sage)]"></i> Resumen anual
+      </h2>
+      <div id="resumenAnualBody"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal genérico -->
@@ -373,8 +386,8 @@ const DEFAULTS = {
     { id:5, nombre:"Hermana", emoji:"👩‍🦰", color:"#b58bc4", accesoHogar:true },
   ],
   eventos: [
-    { id:1, titulo:"Cumpleaños de Mamá", fecha: addDays(12), emoji:"🎂", completado:false },
-    { id:2, titulo:"Reunión familiar", fecha: addDays(28), emoji:"🍲", completado:false },
+    { id:1, titulo:"Cumpleaños de Mamá", fecha: addDays(12), emoji:"🎂", completado:false, presupuesto: 200, tareas:[] },
+    { id:2, titulo:"Reunión familiar", fecha: addDays(28), emoji:"🍲", completado:false, presupuesto: null, tareas:[] },
   ],
   gastos: [],
   votaciones: [
@@ -579,36 +592,179 @@ function renderEventos(){
   cont.innerHTML = activos.map(e=>{
     const dias = diasRestantes(e.fecha);
     const r = 30, circ = 2*Math.PI*r;
-    const ventana = 30; // ventana visual del anillo: 30 días
+    const ventana = 30;
     const pct = Math.max(0, Math.min(1, 1 - dias/ventana));
     const offset = circ - pct*circ;
     const urgente = dias <= 3;
+
+    // Barra de presupuesto
+    const gastadoEvento = DB.gastos.filter(g=>g.eventoId===e.id).reduce((s,g)=>s+g.monto, 0);
+    let presupuestoHTML = '';
+    if(e.presupuesto){
+      const pctGasto = Math.min(1, gastadoEvento / e.presupuesto);
+      const colorBar = pctGasto >= 1 ? 'var(--bad)' : pctGasto > 0.75 ? 'var(--gold)' : 'var(--sage)';
+      presupuestoHTML = `
+        <div class="mt-2">
+          <div class="flex justify-between text-xs text-[var(--ink-faint)] mb-1">
+            <span>Presupuesto</span>
+            <span class="mono">S/${gastadoEvento.toLocaleString()} / S/${e.presupuesto.toLocaleString()}</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full" style="background:var(--line)">
+            <div class="h-1.5 rounded-full" style="width:${(pctGasto*100).toFixed(0)}%; background:${colorBar}"></div>
+          </div>
+        </div>`;
+    }
+
+    // Badge de tareas
+    const tareas = e.tareas || [];
+    const hechas = tareas.filter(t=>t.hecha).length;
+    const tareasHTML = tareas.length ? `<span class="chip text-[9px] px-1.5 py-0.5 ml-1" style="background:rgba(157,180,142,.15); border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : '';
+
     return `
-    <div class="card p-5 flex items-center gap-5">
-      <div class="relative w-20 h-20 flex-shrink-0">
-        <svg viewBox="0 0 70 70" class="ring w-20 h-20">
-          <circle cx="35" cy="35" r="${r}" stroke="var(--line)" stroke-width="6" fill="none"/>
-          <circle cx="35" cy="35" r="${r}" stroke="${urgente?'var(--terracotta)':'var(--sage)'}" stroke-width="6" fill="none"
-            stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" style="--circ:${circ};--target:${offset}" class="grow-ring"/>
-        </svg>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-xl font-bold mono ${urgente?'text-[var(--terracotta)]':'text-[var(--sage-soft)]'}">${dias<0?0:dias}</span>
-          <span class="text-[9px] text-[var(--ink-faint)] uppercase tracking-wide">días</span>
+    <div class="card p-5">
+      <div class="flex items-center gap-4">
+        <div class="relative w-20 h-20 flex-shrink-0">
+          <svg viewBox="0 0 70 70" class="ring w-20 h-20">
+            <circle cx="35" cy="35" r="${r}" stroke="var(--line)" stroke-width="6" fill="none"/>
+            <circle cx="35" cy="35" r="${r}" stroke="${urgente?'var(--terracotta)':'var(--sage)'}" stroke-width="6" fill="none"
+              stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" style="--circ:${circ};--target:${offset}" class="grow-ring"/>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-xl font-bold mono ${urgente?'text-[var(--terracotta)]':'text-[var(--sage-soft)]'}">${dias<0?0:dias}</span>
+            <span class="text-[9px] text-[var(--ink-faint)] uppercase tracking-wide">días</span>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="serif text-xl font-semibold leading-snug">${e.emoji||'🎉'} ${e.titulo}${tareasHTML}</p>
+          <p class="text-[var(--gold-soft)] text-sm">${new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', month:'long', day:'numeric'})}</p>
+          ${presupuestoHTML}
+        </div>
+        <div class="flex flex-col gap-1.5 flex-shrink-0">
+          <button onclick="abrirDetalleEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Ver tareas y compartir">
+            <i class="fas fa-list-check text-[var(--gold-soft)]"></i>
+          </button>
+          <button onclick="completarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Marcar como completado">
+            <i class="fas fa-check text-[var(--sage)]"></i>
+          </button>
         </div>
       </div>
-      <div class="flex-1">
-        <p class="serif text-xl font-semibold flex items-center gap-2">${e.emoji||'🎉'} ${e.titulo}</p>
-        <p class="text-[var(--gold-soft)] text-sm">${new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', month:'long', day:'numeric'})}</p>
-      </div>
-      <button onclick="completarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center flex-shrink-0" title="Marcar como completado">
-        <i class="fas fa-check text-[var(--sage)]"></i>
-      </button>
     </div>`;
   }).join('');
 }
 function completarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(e){ e.completado = true; guardar(); renderEventos(); renderCalendario(); toast(`"${e.titulo}" marcado como completado 🌿`); }
+}
+
+/* ---------- Detalle de evento: tareas + presupuesto + WhatsApp ---------- */
+function abrirDetalleEvento(id){
+  const back = document.getElementById('modalBackdrop');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  renderDetalleEvento(id);
+}
+function renderDetalleEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const c = document.getElementById('modalContenido');
+  const tareas = e.tareas || [];
+  const hechas = tareas.filter(t=>t.hecha).length;
+  const gastadoEvento = DB.gastos.filter(g=>g.eventoId===e.id).reduce((s,g)=>s+g.monto, 0);
+  const dias = diasRestantes(e.fecha);
+  const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'});
+
+  let presupuestoHTML = '';
+  if(e.presupuesto){
+    const pctGasto = Math.min(1, gastadoEvento / e.presupuesto);
+    const colorBar = pctGasto >= 1 ? 'var(--bad)' : pctGasto > 0.75 ? 'var(--gold)' : 'var(--sage)';
+    presupuestoHTML = `
+      <div class="bg-[var(--bg-soft)] rounded-xl p-3 mb-3">
+        <p class="text-xs text-[var(--ink-faint)] mb-1 font-medium uppercase tracking-wide">Presupuesto</p>
+        <div class="flex justify-between text-sm mb-1.5">
+          <span class="text-[var(--ink-dim)]">Gastado: <span class="mono font-semibold text-[var(--ink)]">S/${gastadoEvento.toLocaleString()}</span></span>
+          <span class="text-[var(--ink-dim)]">Total: <span class="mono font-semibold text-[var(--gold-soft)]">S/${e.presupuesto.toLocaleString()}</span></span>
+        </div>
+        <div class="w-full h-2 rounded-full" style="background:var(--line)">
+          <div class="h-2 rounded-full" style="width:${(pctGasto*100).toFixed(0)}%; background:${colorBar}"></div>
+        </div>
+      </div>`;
+  }
+
+  const tareasHTML = tareas.map(t=>`
+    <div class="flex items-center gap-2 py-1.5 border-b border-[var(--line)] last:border-0">
+      <input type="checkbox" ${t.hecha?'checked':''} onchange="toggleTarea(${e.id}, ${t.id})" style="width:auto; accent-color:var(--sage); flex-shrink:0">
+      <span class="flex-1 text-sm ${t.hecha?'line-through text-[var(--ink-faint)]':''}">${t.texto}</span>
+      ${t.responsableId ? `<span class="text-xs text-[var(--ink-faint)]">${nombrePorId(t.responsableId)}</span>` : ''}
+      <button onclick="eliminarTarea(${e.id}, ${t.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
+    </div>`).join('');
+
+  c.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="serif text-2xl font-medium">${e.emoji||'🎉'} ${e.titulo}</h3>
+      <button onclick="compartirEventoWhatsApp(${e.id})" class="btn btn-primary px-3 py-2 text-sm flex items-center gap-1.5" title="Compartir por WhatsApp">
+        <i class="fab fa-whatsapp"></i> Compartir
+      </button>
+    </div>
+    <p class="text-[var(--gold-soft)] text-sm mb-4">${fechaStr} · ${dias >= 0 ? `${dias} días` : 'ya pasó'}</p>
+    ${presupuestoHTML}
+    <div class="mb-3">
+      <p class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide mb-2">Tareas ${tareas.length ? `(${hechas}/${tareas.length})` : ''}</p>
+      <div class="mb-3">${tareasHTML || `<p class="text-sm text-[var(--ink-faint)] py-2">Sin tareas. Agrega lo que falta organizar.</p>`}</div>
+      <div class="flex gap-2">
+        <select id="tarea-resp-${e.id}" class="flex-shrink-0" style="width:auto">
+          <option value="">¿Quién?</option>
+          ${DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('')}
+        </select>
+        <input id="tarea-input-${e.id}" placeholder="Nueva tarea..." onkeydown="if(event.key==='Enter') agregarTarea(${e.id})" class="flex-1">
+        <button onclick="agregarTarea(${e.id})" class="btn btn-gold px-3 flex-shrink-0"><i class="fas fa-plus"></i></button>
+      </div>
+    </div>
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 mt-1 text-sm">Cerrar</button>`;
+}
+function agregarTarea(eventoId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  if(!e) return;
+  if(!e.tareas) e.tareas = [];
+  const input = document.getElementById(`tarea-input-${eventoId}`);
+  const texto = input.value.trim();
+  if(!texto){ toast('Escribe la tarea primero', 'bad'); return; }
+  const respSel = document.getElementById(`tarea-resp-${eventoId}`);
+  const responsableId = respSel.value ? +respSel.value : null;
+  e.tareas.push({ id:Date.now(), texto, responsableId, hecha:false });
+  guardar(); renderDetalleEvento(eventoId); renderEventos();
+  toast('Tarea agregada ✅');
+}
+function toggleTarea(eventoId, tareaId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  const t = e && e.tareas && e.tareas.find(x=>x.id===tareaId);
+  if(t){ t.hecha = !t.hecha; guardar(); renderDetalleEvento(eventoId); renderEventos(); }
+}
+function eliminarTarea(eventoId, tareaId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  if(e && e.tareas){ e.tareas = e.tareas.filter(t=>t.id!==tareaId); }
+  guardar(); renderDetalleEvento(eventoId); renderEventos();
+  toast('Tarea eliminada 🗑️');
+}
+function compartirEventoWhatsApp(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const dias = diasRestantes(e.fecha);
+  const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'});
+  const gastadoEvento = DB.gastos.filter(g=>g.eventoId===e.id).reduce((s,g)=>s+g.monto, 0);
+  let msg = `${e.emoji||'🎉'} *${e.titulo}*\n📅 ${fechaStr}`;
+  if(dias >= 0) msg += ` _(faltan ${dias} días)_`;
+  msg += '\n';
+  if(e.presupuesto) msg += `💰 Presupuesto: S/${e.presupuesto.toLocaleString()} | Gastado: S/${gastadoEvento.toLocaleString()}\n`;
+  const tareas = e.tareas || [];
+  if(tareas.length){
+    msg += `\n📋 *Lista de tareas:*\n`;
+    tareas.forEach(t=>{
+      const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
+      msg += `${t.hecha ? '✅' : '⬜'} ${t.texto}${resp}\n`;
+    });
+  }
+  msg += `\n🌿 _YuyoChain • Familia Unida_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 /* ---------- Render: Calendario ---------- */
@@ -664,7 +820,7 @@ function calcularDeudasPorGasto(){
 }
 function renderBalance(){
   const total = DB.gastos.reduce((s,g)=>s+g.monto,0);
-  document.getElementById('totalGastado').textContent = '$'+total.toLocaleString();
+  document.getElementById('totalGastado').textContent = 'S/'+total.toLocaleString();
   const grupos = calcularDeudasPorGasto();
   document.getElementById('deudas').innerHTML = grupos.length ? grupos.map(grp=>`
     <div>
@@ -673,7 +829,7 @@ function renderBalance(){
         ${grp.transacciones.map(t=>`
           <div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2">
             <span><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
-            <span class="mono font-semibold">$${t.monto.toFixed(2)}</span>
+            <span class="mono font-semibold">S/${t.monto.toFixed(2)}</span>
           </div>
         `).join('')}
       </div>
@@ -684,7 +840,7 @@ function renderBalance(){
     <div class="flex justify-between items-center text-[var(--ink-dim)] gap-2">
       <span class="truncate">${g.descripcion} <span class="text-[var(--ink-faint)]">— pagó ${nombrePorId(g.pagadoPor)}</span></span>
       <span class="flex items-center gap-2 flex-shrink-0">
-        <span class="mono">$${g.monto.toLocaleString()}</span>
+        <span class="mono">S/${g.monto.toLocaleString()}</span>
         ${g.boleta? `<button onclick="descargarBoleta('${g.boleta}','boleta-${g.descripcion.replace(/[^a-z0-9]/gi,'_')}')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Descargar boleta"><i class="fas fa-receipt text-xs"></i></button>` : ''}
         <button onclick="editarGasto(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Corregir"><i class="fas fa-pen text-xs"></i></button>
         <button onclick="eliminarGasto(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
@@ -752,7 +908,7 @@ function editarGasto(id){
             <input type="number" class="ge-aporte" data-id="${f.id}" placeholder="0" value="${valor}" oninput="actualizarTotalPersonalizadoEdicionGasto()" style="width:6.5rem">
           </div>`;
         }).join('')}
-        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="ge-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="ge-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">S/0.00</span></p>
       </div>
 
       <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> Boleta adjunta ${g.boleta? '(ya tiene una — subir otra la reemplaza)':'(opcional)'}</p>
@@ -780,7 +936,7 @@ function actualizarTotalPersonalizadoEdicionGasto(){
     total += parseFloat(input.value) || 0;
   });
   const span = document.getElementById('ge-total-personalizado');
-  if(span) span.textContent = '$' + total.toFixed(2);
+  if(span) span.textContent = 'S/' + total.toFixed(2);
 }
 async function guardarEdicionGasto(id){
   const g = DB.gastos.find(x=>x.id===id);
@@ -842,17 +998,17 @@ function renderGastosFijos(){
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2">
           <p class="text-sm font-medium truncate ${g.pagado?'line-through':''}">${g.nombre}</p>
-          <span class="mono text-sm font-semibold flex-shrink-0">$${g.monto.toLocaleString()}</span>
+          <span class="mono text-sm font-semibold flex-shrink-0">S/${g.monto.toLocaleString()}</span>
         </div>
         <p class="text-xs text-[var(--ink-faint)] mt-0.5">
           ${tieneAportes
             ? `Aporte personalizado entre ${participantes.length} ${participantes.length===1?'persona':'personas'}`
-            : `Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">$${porPersona.toFixed(2)} c/u</span>`}
+            : `Se reparte entre ${participantes.length} ${participantes.length===1?'persona':'personas'} · <span class="text-[var(--gold-soft)]">S/${porPersona.toFixed(2)} c/u</span>`}
         </p>
         <div class="flex flex-wrap gap-1.5 mt-1.5">
           ${participantes.map(pid=>{
             const m = DB.familia.find(f=>f.id===pid); if(!m) return '';
-            const montoChip = tieneAportes ? `$${(+g.aportes[pid]).toFixed(2)}` : '';
+            const montoChip = tieneAportes ? `S/${(+g.aportes[pid]).toFixed(2)}` : '';
             return `<span class="chip" style="background:rgba(157,180,142,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}${montoChip?' · '+montoChip:''}</span>`;
           }).join('')}
         </div>
@@ -982,7 +1138,7 @@ function abrirFormGastoFijo(id){
             <input type="number" class="gf-aporte" data-id="${f.id}" placeholder="0" value="${aporteActual}" oninput="actualizarTotalPersonalizado()" style="width:6.5rem">
           </div>`;
         }).join('')}
-        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="gf-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">$0.00</span></p>
+        <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="gf-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">S/0.00</span></p>
       </div>
 
       <p class="text-xs text-[var(--ink-faint)] mt-1"><i class="fas fa-receipt"></i> ${g? 'Las boletas se administran con el botón 🧾 de la lista.' : 'Podrás adjuntar boletas (hasta 4) después de guardar, con el botón 🧾.'}</p>
@@ -1003,7 +1159,7 @@ function actualizarTotalPersonalizado(){
     total += parseFloat(input.value) || 0;
   });
   const span = document.getElementById('gf-total-personalizado');
-  if(span) span.textContent = '$' + total.toFixed(2);
+  if(span) span.textContent = 'S/' + total.toFixed(2);
 }
 async function guardarGastoFijo(id){
   const nombre = document.getElementById('gf-nombre').value.trim();
@@ -1218,6 +1374,7 @@ function mostrarPanel(nombre, fromHistory){
   if(nombre==='votaciones'){ renderVotaciones(); }
   if(nombre==='gastohogar'){ renderGastosHogarEstado(); }
   if(nombre==='resumen'){ renderResumen(); }
+  if(nombre==='resumenanual'){ renderResumenAnual(); }
 }
 function irInicio(){ mostrarPanel('inicio'); }
 function iniciarAsistente(pasoInicial){
@@ -1271,8 +1428,12 @@ function poblarFormEvento(){
   document.getElementById('ev-titulo').value = '';
   document.getElementById('ev-fecha').value = addDays(7);
   document.getElementById('ev-emoji').value = '🎉';
+  document.getElementById('ev-presupuesto').value = '';
 }
 function poblarFormGasto(){
+  const eventosActivos = DB.eventos.filter(e=>!e.completado).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  document.getElementById('g-evento').innerHTML = `<option value="">Sin evento (gasto general)</option>` +
+    eventosActivos.map(e=>`<option value="${e.id}">${e.emoji||'🎉'} ${e.titulo}</option>`).join('');
   document.getElementById('g-pago').innerHTML = DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('');
   document.getElementById('g-participantes').innerHTML = DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
     <input type="checkbox" class="g-part" value="${f.id}" checked style="width:auto"> ${f.emoji} ${f.nombre}</label>`).join('');
@@ -1304,7 +1465,7 @@ function actualizarTotalPersonalizadoGasto(){
     total += parseFloat(input.value) || 0;
   });
   const span = document.getElementById('g-total-personalizado');
-  if(span) span.textContent = '$' + total.toFixed(2);
+  if(span) span.textContent = 'S/' + total.toFixed(2);
 }
 function poblarFormMemoria(){
   document.getElementById('m-titulo').value = '';
@@ -1315,8 +1476,9 @@ function guardarEvento(){
   const titulo = document.getElementById('ev-titulo').value.trim();
   const fecha = document.getElementById('ev-fecha').value;
   const emoji = document.getElementById('ev-emoji').value || '🎉';
+  const presupuesto = parseFloat(document.getElementById('ev-presupuesto').value) || null;
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
-  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false });
+  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto, tareas:[] });
   guardar(); renderEventos(); renderCalendario();
   toast(`Evento "${titulo}" agregado 📅`);
   avanzarAsistente(`📅 Evento creado: "${titulo}"`);
@@ -1351,10 +1513,12 @@ async function guardarGasto(){
     if(contarBoletas() >= TOPE_BOLETAS){ toast(`Llegaste al máximo de ${TOPE_BOLETAS} boletas guardadas. El gasto se guardará sin boleta.`, 'warn'); }
     else { try{ boleta = await imagenAWebp(archivo, 1000, 0.8); } catch(e){ toast('No se pudo procesar la boleta', 'bad'); } }
   }
-  DB.gastos.push({ id:Date.now(), descripcion, monto, pagadoPor, participantes, aportes, boleta, fecha:new Date().toISOString().split('T')[0] });
+  const eventoIdStr = document.getElementById('g-evento').value;
+  const eventoId = eventoIdStr ? +eventoIdStr : null;
+  DB.gastos.push({ id:Date.now(), descripcion, monto, pagadoPor, participantes, aportes, boleta, eventoId, fecha:new Date().toISOString().split('T')[0] });
   guardar(); renderBalance();
   toast('Gasto registrado y repartido ✅');
-  avanzarAsistente(`💰 Gasto registrado: "${descripcion}" — $${monto.toLocaleString()}`);
+  avanzarAsistente(`💰 Gasto registrado: "${descripcion}" — S/${monto.toLocaleString()}`);
 }
 function agregarFamiliar(){
   const nombre = document.getElementById('f-nombre').value.trim();
@@ -1394,11 +1558,107 @@ async function guardarMemoria(){
 
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
 
+/* ---------- Recordatorios con Notification API ---------- */
+function verificarRecordatorios(){
+  if(!('Notification' in window)) return;
+  const hoy = new Date().toISOString().split('T')[0];
+  const eventosCercanos = DB.eventos.filter(e=>!e.completado && diasRestantes(e.fecha) >= 0 && diasRestantes(e.fecha) <= 7);
+  if(!eventosCercanos.length) return;
+
+  function mostrarNotifs(){
+    eventosCercanos.forEach(e=>{
+      const clave = `yc_notif_${e.id}_${hoy}`;
+      if(localStorage.getItem(clave)) return;
+      const dias = diasRestantes(e.fecha);
+      const msg = dias === 0 ? '¡Es hoy!' : `Faltan ${dias} día${dias===1?'':'s'}`;
+      new Notification(`${e.emoji||'🎉'} ${e.titulo}`, { body: msg, icon: '' });
+      localStorage.setItem(clave, '1');
+    });
+  }
+
+  if(Notification.permission === 'granted'){
+    mostrarNotifs();
+  } else if(Notification.permission === 'default'){
+    // Solo pedimos permiso si hay eventos en los próximos 3 días (más urgente)
+    const urgentes = eventosCercanos.filter(e=>diasRestantes(e.fecha) <= 3);
+    if(urgentes.length){
+      Notification.requestPermission().then(p=>{ if(p==='granted') mostrarNotifs(); });
+    }
+  }
+}
+
+/* ---------- Resumen anual ---------- */
+function renderResumenAnual(){
+  const anio = String(new Date().getFullYear());
+  const gastosAnio = DB.gastos.filter(g=> g.fecha && g.fecha.startsWith(anio));
+  const totalAnio = gastosAnio.reduce((s,g)=>s+g.monto, 0);
+
+  // Por mes
+  const porMes = {};
+  gastosAnio.forEach(g=>{
+    const mes = g.fecha.slice(0,7);
+    porMes[mes] = (porMes[mes]||0) + g.monto;
+  });
+  const meses = Object.entries(porMes).sort(([a],[b])=>a.localeCompare(b));
+  const maxMes = meses.length ? Math.max(...meses.map(([,v])=>v)) : 1;
+
+  const mesesHTML = meses.length ? meses.map(([mes,total])=>{
+    const label = new Date(mes+'-01').toLocaleDateString('es-ES',{month:'long'});
+    const pct = (total/maxMes*100).toFixed(0);
+    return `
+      <div class="flex items-center gap-3 text-sm">
+        <span class="w-20 text-right text-[var(--ink-faint)] capitalize text-xs">${label}</span>
+        <div class="flex-1 h-5 rounded-lg overflow-hidden" style="background:var(--line)">
+          <div class="h-full rounded-lg flex items-center pl-2" style="width:${pct}%; background:linear-gradient(90deg,var(--sage),var(--gold)); min-width:2rem;">
+            <span class="text-[10px] font-semibold text-[#16210f] mono">S/${total.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('') : `<p class="text-[var(--ink-faint)] text-sm">Sin gastos registrados este año.</p>`;
+
+  // Por persona
+  const porPersona = {};
+  gastosAnio.forEach(g=>{
+    const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
+    const parte = g.monto / participantes.length;
+    participantes.forEach(pid=>{ porPersona[pid] = (porPersona[pid]||0) + parte; });
+  });
+  const personasHTML = Object.entries(porPersona).sort(([,a],[,b])=>b-a).map(([pid,total])=>{
+    const m = DB.familia.find(f=>f.id===+pid);
+    if(!m) return '';
+    return `<div class="flex justify-between items-center text-sm py-1.5 border-b border-[var(--line)] last:border-0">
+      <span>${m.emoji} ${m.nombre}</span>
+      <span class="mono font-semibold text-[var(--gold-soft)]">S/${total.toFixed(2)}</span>
+    </div>`;
+  }).join('') || `<p class="text-[var(--ink-faint)] text-sm">Sin datos.</p>`;
+
+  // Eventos completados
+  const evCompletados = DB.eventos.filter(e=>e.completado);
+
+  document.getElementById('resumenAnualBody').innerHTML = `
+    <div class="space-y-6">
+      <div class="text-center">
+        <p class="text-[var(--ink-faint)] text-sm">Total gastado en ${anio}</p>
+        <p class="text-4xl font-bold mono text-[var(--gold-soft)] mt-1">S/${totalAnio.toLocaleString()}</p>
+        <p class="text-xs text-[var(--ink-faint)] mt-1">${gastosAnio.length} gasto${gastosAnio.length===1?'':'s'} · ${evCompletados.length} evento${evCompletados.length===1?'':'s'} completado${evCompletados.length===1?'':'s'}</p>
+      </div>
+      <div class="card p-5">
+        <p class="text-xs font-medium uppercase tracking-wide text-[var(--ink-faint)] mb-3">Gastos por mes</p>
+        <div class="space-y-2">${mesesHTML}</div>
+      </div>
+      <div class="card p-5">
+        <p class="text-xs font-medium uppercase tracking-wide text-[var(--ink-faint)] mb-3">Gasto por persona (parte proporcional)</p>
+        ${personasHTML}
+      </div>
+    </div>`;
+}
+
 /* ---------- Init ---------- */
 (async function iniciar(){
   const overlay = document.getElementById('cargaInicial');
   await cargarEstado();
   mostrarPanel('inicio');
+  verificarRecordatorios();
   if(overlay) overlay.remove();
 })();
 </script>
