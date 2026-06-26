@@ -150,44 +150,47 @@
 
   <!-- ============ PANEL: INICIO ============ -->
   <div id="panel-inicio" class="panel panel-activa">
-    <div class="text-center mb-10">
-      <svg viewBox="0 0 48 48" width="56" height="56" xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3" aria-hidden="true">
-        <defs>
-          <linearGradient id="logoGradHero" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="var(--sage)"/>
-            <stop offset="1" stop-color="var(--gold)"/>
-          </linearGradient>
-        </defs>
+
+    <!-- Encabezado compacto -->
+    <div class="flex items-center gap-3 mb-6">
+      <svg viewBox="0 0 48 48" width="36" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="flex-shrink-0">
+        <defs><linearGradient id="logoGradHero" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--sage)"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs>
         <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#logoGradHero)" stroke-width="2.5" opacity="0.65"/>
         <path d="M24 39 C24 30 24 21 24 13" stroke="url(#logoGradHero)" stroke-width="3" stroke-linecap="round" fill="none"/>
         <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#logoGradHero)"/>
         <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#logoGradHero)" opacity="0.85"/>
       </svg>
-      <p class="chip text-[var(--gold-soft)] mb-2 inline-block"><i class="fas fa-leaf"></i>&nbsp; Tu cartera familiar: toma la iniciativa y mide los gastos antes del descontrol</p>
-      <h1 class="serif text-4xl sm:text-5xl font-semibold text-[var(--ink)]">YuyoChain</h1>
-      <p class="text-[var(--ink-dim)] text-lg mt-1">Nuestra familia, siempre conectada.</p>
+      <div>
+        <h1 class="serif text-2xl font-semibold leading-none">YuyoChain</h1>
+        <p class="text-[var(--ink-faint)] text-xs mt-0.5">Nuestra familia, siempre conectada.</p>
+      </div>
     </div>
 
-    <h3 class="serif text-base font-medium text-center text-[var(--ink-dim)] mb-4">Acciones rápidas</h3>
-    <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mb-12">
+    <!-- Estado actual (se rellena por JS) -->
+    <div id="estadoInicio" class="mb-6 space-y-3"></div>
+
+    <!-- Agregar nuevo -->
+    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Agregar nuevo</p>
+    <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mb-8">
       <button class="glass-btn principal" style="--glow:var(--sage)" onclick="iniciarAsistente('evento')">
-        <i class="fas fa-calendar-plus"></i><span class="glass-label">Evento</span>
+        <i class="fas fa-calendar-plus"></i><span class="glass-label">+ Evento</span>
       </button>
       <button class="glass-btn principal" style="--glow:var(--gold)" onclick="iniciarAsistente('gasto')">
-        <i class="fas fa-coins"></i><span class="glass-label">Gasto</span>
+        <i class="fas fa-coins"></i><span class="glass-label">+ Gasto</span>
       </button>
       <button class="glass-btn principal" style="--glow:var(--terracotta)" onclick="iniciarAsistente('memoria')">
-        <i class="fas fa-images"></i><span class="glass-label">Memoria</span>
+        <i class="fas fa-images"></i><span class="glass-label">+ Foto</span>
       </button>
     </div>
 
-    <h3 class="serif text-base font-medium text-center text-[var(--ink-dim)] mb-4">Explorar</h3>
+    <!-- Ver secciones -->
+    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Ver secciones</p>
     <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 max-w-4xl mx-auto">
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gasto')"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('evento')"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-seedling"></i><span class="glass-label">Familia</span></button>
-      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar-days"></i><span class="glass-label">Calendario</span></button>
-      <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
-      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
-      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Gastos del hogar</span></button>
+      <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
     </div>
   </div>
@@ -261,10 +264,10 @@
           <span class="text-sm text-[var(--ink-faint)]">gastados este año</span>
         </div>
         <div id="deudas" class="space-y-2 mb-5"></div>
-        <details class="text-sm">
-          <summary class="cursor-pointer text-[var(--sage-soft)] font-medium">Ver historial de gastos</summary>
-          <div id="historialGastos" class="mt-3 space-y-2 max-h-48 overflow-y-auto scrollbar-thin pr-1"></div>
-        </details>
+        <div class="text-sm">
+          <p class="text-[var(--sage-soft)] font-medium mb-2">Historial de gastos</p>
+          <div id="historialGastos" class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin pr-1"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1420,6 +1423,7 @@ function mostrarPanel(nombre, fromHistory){
   document.getElementById('btnInicio').classList.toggle('hidden', nombre==='inicio');
   window.scrollTo({top:0, behavior:'smooth'});
 
+  if(nombre==='inicio'){ renderEstadoInicio(); }
   if(nombre==='evento'){ poblarFormEvento(); renderEventos(); }
   if(nombre==='gasto'){ poblarFormGasto(); renderBalance(); }
   if(nombre==='memoria'){ poblarFormMemoria(); renderMemorias(); }
@@ -1611,6 +1615,79 @@ async function guardarMemoria(){
 }
 
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
+
+/* ---------- Estado del inicio ---------- */
+function renderEstadoInicio(){
+  const div = document.getElementById('estadoInicio');
+  if(!div) return;
+
+  // --- Próximo evento ---
+  const proximoEvento = DB.eventos
+    .filter(e=>!e.completado && diasRestantes(e.fecha) >= 0)
+    .sort((a,b)=>new Date(a.fecha)-new Date(b.fecha))[0];
+
+  let eventoHTML = '';
+  if(proximoEvento){
+    const dias = diasRestantes(proximoEvento.fecha);
+    const urgente = dias <= 3;
+    const tareas = proximoEvento.tareas || [];
+    const hechas = tareas.filter(t=>t.hecha).length;
+    eventoHTML = `
+      <div class="card p-4 flex items-center gap-4 cursor-pointer" onclick="mostrarPanel('evento')" style="border-color:${urgente?'var(--terracotta)':'var(--line)'}">
+        <div class="text-center flex-shrink-0 w-14">
+          <p class="text-2xl font-bold mono ${urgente?'text-[var(--terracotta)]':'text-[var(--sage-soft)]'}">${dias}</p>
+          <p class="text-[9px] text-[var(--ink-faint)] uppercase tracking-wide">días</p>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-0.5">Próximo evento</p>
+          <p class="font-semibold truncate">${proximoEvento.emoji||'🎉'} ${proximoEvento.titulo}</p>
+          <p class="text-xs text-[var(--gold-soft)]">${new Date(proximoEvento.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'})}</p>
+          ${proximoEvento.presupuesto ? (() => {
+            const gastado = DB.gastos.filter(g=>g.eventoId===proximoEvento.id).reduce((s,g)=>s+g.monto,0);
+            const pct = Math.min(1, gastado/proximoEvento.presupuesto);
+            const col = pct>=1?'var(--bad)':pct>0.75?'var(--gold)':'var(--sage)';
+            return `<div class="mt-1.5 w-full h-1 rounded-full" style="background:var(--line)"><div class="h-1 rounded-full" style="width:${(pct*100).toFixed(0)}%;background:${col}"></div></div>`;
+          })() : ''}
+        </div>
+        ${tareas.length ? `<span class="chip text-[9px] flex-shrink-0" style="background:rgba(157,180,142,.15);border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : ''}
+        <i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs flex-shrink-0"></i>
+      </div>`;
+  }
+
+  // --- Balance familiar ---
+  const grupos = calcularDeudasPorGasto();
+  // Consolidar: sumar todas las deudas de A→B en una sola línea
+  const consolidado = {};
+  grupos.forEach(g=>g.transacciones.forEach(t=>{
+    const key = `${t.de}-${t.a}`;
+    consolidado[key] = (consolidado[key]||{de:t.de, a:t.a, monto:0});
+    consolidado[key].monto += t.monto;
+  }));
+  const deudas = Object.values(consolidado);
+  const totalGastado = DB.gastos.reduce((s,g)=>s+g.monto,0);
+  const mesKey = new Date().toISOString().slice(0,7);
+  const totalMes = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mesKey)).reduce((s,g)=>s+g.monto,0);
+
+  const balanceHTML = `
+    <div class="card p-4 cursor-pointer" onclick="mostrarPanel('gasto')">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Balance familiar</p>
+        <span class="flex items-center gap-3 text-xs text-[var(--ink-faint)]">
+          <span>Este mes: <span class="mono font-semibold text-[var(--ink)]">S/${totalMes.toLocaleString()}</span></span>
+          <i class="fas fa-chevron-right text-xs"></i>
+        </span>
+      </div>
+      ${deudas.length ? deudas.slice(0,3).map(d=>`
+        <div class="flex items-center justify-between text-sm py-1.5 border-b border-[var(--line)] last:border-0">
+          <span><span class="font-semibold text-[var(--terracotta)]">${nombrePorId(d.de)}</span> le debe a <span class="font-semibold text-[var(--sage-soft)]">${nombrePorId(d.a)}</span></span>
+          <span class="mono font-semibold">S/${d.monto.toFixed(2)}</span>
+        </div>`).join('')
+        + (deudas.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-2">+${deudas.length-3} deuda${deudas.length-3===1?'':'s'} más → Ver gastos</p>` : '')
+      : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo parejo, nadie debe nada</p>`}
+    </div>`;
+
+  div.innerHTML = eventoHTML + balanceHTML;
+}
 
 /* ---------- Candado de acceso a la app ---------- */
 function verificarAppLock(){
