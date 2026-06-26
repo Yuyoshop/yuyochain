@@ -1840,7 +1840,43 @@ function renderEstadoInicio(){
       </div>`;
   }).join('');
 
-  div.innerHTML = cumpleHTML + eventoHTML + balanceHTML;
+  // --- Votaciones activas ---
+  const votacionesConVotos = DB.votaciones.filter(v=>{
+    const votos = Object.values(v.votos||{});
+    return votos.length > 0;
+  });
+  let votacionesHTML = '';
+  if(votacionesConVotos.length){
+    const items = votacionesConVotos.map(v=>{
+      const votos = Object.values(v.votos||{});
+      const si = votos.filter(x=>x==='si').length;
+      const no = votos.filter(x=>x==='no').length;
+      const total = si + no;
+      const ganaSi = si > no;
+      const ganaNo = no > si;
+      const empate = si === no && total > 0;
+      return `
+        <div class="flex items-center justify-between gap-3 py-1.5 border-b border-[var(--line)] last:border-0">
+          <p class="text-sm flex-1 truncate">${v.titulo}</p>
+          <div class="flex items-center gap-1.5 flex-shrink-0 text-xs">
+            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaSi?'rgba(143,191,127,.2)':'rgba(255,255,255,.05)'}; color:${ganaSi?'var(--good)':'var(--ink-faint)'}; border:1px solid ${ganaSi?'var(--good)':'var(--line)'}">👍 ${si}</span>
+            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaNo?'rgba(210,112,95,.2)':'rgba(255,255,255,.05)'}; color:${ganaNo?'var(--bad)':'var(--ink-faint)'}; border:1px solid ${ganaNo?'var(--bad)':'var(--line)'}">👎 ${no}</span>
+            ${empate?`<span class="text-[var(--gold-soft)] text-[10px]">empate</span>`:''}
+          </div>
+        </div>`;
+    }).join('');
+
+    votacionesHTML = `
+      <div class="card p-4 cursor-pointer" onclick="mostrarPanel('votaciones')">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Votaciones activas</p>
+          <i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs"></i>
+        </div>
+        ${items}
+      </div>`;
+  }
+
+  div.innerHTML = cumpleHTML + eventoHTML + balanceHTML + votacionesHTML;
 }
 
 /* ---------- Candado de acceso a la app ---------- */
