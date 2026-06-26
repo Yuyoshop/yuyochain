@@ -550,8 +550,38 @@ function diasRestantes(fecha){
 }
 
 /* ---------- Render: Familia ---------- */
+function diasHastaCumple(mmdd){
+  if(!mmdd) return null;
+  const [mm, dd] = mmdd.split('-').map(Number);
+  const hoy = new Date();
+  let target = new Date(hoy.getFullYear(), mm-1, dd);
+  if(target < hoy) target = new Date(hoy.getFullYear()+1, mm-1, dd);
+  return Math.ceil((target - hoy) / 86400000);
+}
+function formatCumple(mmdd){
+  if(!mmdd) return '';
+  const [mm, dd] = mmdd.split('-').map(Number);
+  return new Date(2000, mm-1, dd).toLocaleDateString('es-ES',{day:'numeric', month:'long'});
+}
+
 function renderFamilia(){
-  document.getElementById('familia').innerHTML = DB.familia.map(m=>`
+  document.getElementById('familia').innerHTML = DB.familia.map(m=>{
+    const dias = diasHastaCumple(m.cumpleanos);
+    const esHoy = dias === 0;
+    const cercano = dias !== null && dias <= 14;
+    const regalos = m.listaRegalos || [];
+    const reservados = regalos.filter(r=>r.reservadoPor).length;
+
+    let cumpleHTML = '';
+    if(m.cumpleanos){
+      cumpleHTML = `<p class="text-[10px] mt-1 ${esHoy?'text-[var(--gold)] font-semibold':cercano?'text-[var(--terracotta)]':'text-[var(--ink-faint)]'}">
+        ${esHoy?'🎂 ¡Hoy es su cumple!': `🎂 ${formatCumple(m.cumpleanos)}${cercano?` · ${dias}d`:''}`}
+      </p>`;
+    } else {
+      cumpleHTML = `<button onclick="editarCumpleFamiliar(${m.id})" class="text-[9px] text-[var(--ink-faint)] hover:text-[var(--sage-soft)] mt-1 block w-full">+ agregar cumpleaños</button>`;
+    }
+
+    return `
     <div class="card p-4 text-center relative overflow-hidden">
       <label class="relative inline-block cursor-pointer group" title="Cambiar foto">
         ${m.foto
@@ -565,16 +595,35 @@ function renderFamilia(){
         ${m.nombre}
         <button onclick="renombrarFamiliar(${m.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Editar nombre"><i class="fas fa-pen"></i></button>
       </p>
+      ${cumpleHTML}
       ${m.telefono
         ? `<a href="https://wa.me/51${m.telefono.replace(/\D/g,'')}" target="_blank" rel="noopener"
              class="inline-flex items-center gap-1 text-xs mt-1 px-2 py-0.5 rounded-full"
              style="background:rgba(37,211,102,.12); color:#25d366; border:1px solid rgba(37,211,102,.3);">
              <i class="fab fa-whatsapp"></i> ${m.telefono}
            </a>`
-        : `<button onclick="editarTelefonoFamiliar(${m.id})" class="text-[9px] text-[var(--ink-faint)] hover:text-[var(--sage-soft)] mt-1 block w-full">+ agregar WhatsApp</button>`}
+        : `<button onclick="editarTelefonoFamiliar(${m.id})" class="text-[9px] text-[var(--ink-faint)] hover:text-[var(--sage-soft)] mt-0.5 block w-full">+ agregar WhatsApp</button>`}
+      <button onclick="abrirListaRegalos(${m.id})"
+        class="mt-2 w-full text-xs py-1.5 rounded-xl flex items-center justify-center gap-1.5"
+        style="background:rgba(217,160,86,.1); border:1px solid rgba(217,160,86,.25); color:var(--gold-soft);">
+        <i class="fas fa-gift"></i>
+        ${regalos.length ? `${regalos.length} regalo${regalos.length===1?'':'s'}${reservados?` · ${reservados} reservado${reservados===1?'':'s'}`:''}` : 'Lista de regalos'}
+      </button>
       <div class="absolute bottom-0 left-0 right-0 h-1" style="background:${m.color}"></div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function editarCumpleFamiliar(id){
+  const m = DB.familia.find(f=>f.id===id);
+  if(!m) return;
+  const val = prompt(`Fecha de cumpleaños de ${m.nombre} (formato DD-MM, ej: 12-07 para el 12 de julio):`, m.cumpleanos||'');
+  if(val===null) return;
+  const limpio = val.trim();
+  if(limpio && !/^\d{2}-\d{2}$/.test(limpio)){ toast('Formato incorrecto. Usa DD-MM, ej: 12-07', 'bad'); return; }
+  m.cumpleanos = limpio || null;
+  guardar(); renderFamilia();
+  toast(limpio ? `Cumpleaños de ${m.nombre}: ${formatCumple(limpio)} 🎂` : 'Cumpleaños eliminado');
 }
 function editarTelefonoFamiliar(id){
   const m = DB.familia.find(f=>f.id===id);
@@ -583,7 +632,89 @@ function editarTelefonoFamiliar(id){
   if(tel===null) return;
   m.telefono = tel.trim() || null;
   guardar(); renderFamilia();
-  toast(m.telefono ? `WhatsApp de ${m.nombre} guardado 📱` : `Número eliminado`);
+  toast(m.telefono ? `WhatsApp de ${m.nombre} guardado 📱` : 'Número eliminado');
+}
+
+/* ---------- Lista de regalos ---------- */
+function abrirListaRegalos(id){
+  const back = document.getElementById('modalBackdrop');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  renderModalRegalos(id);
+}
+function renderModalRegalos(id){
+  const m = DB.familia.find(f=>f.id===id);
+  if(!m) return;
+  if(!m.listaRegalos) m.listaRegalos = [];
+  const c = document.getElementById('modalContenido');
+  const lista = m.listaRegalos;
+
+  const itemsHTML = lista.length ? lista.map(r=>`
+    <div class="flex items-center gap-2 py-2 border-b border-[var(--line)] last:border-0">
+      ${r.reservadoPor
+        ? `<span class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style="background:rgba(143,191,127,.2)"><i class="fas fa-check text-[8px] text-[var(--good)]"></i></span>`
+        : `<span class="w-5 h-5 rounded-full border border-[var(--line)] flex-shrink-0"></span>`}
+      <span class="flex-1 text-sm ${r.reservadoPor?'line-through text-[var(--ink-faint)]':''}">${r.texto}</span>
+      ${r.reservadoPor
+        ? `<span class="text-[10px] text-[var(--good)] flex-shrink-0">reservado ✓</span>
+           <button onclick="liberarRegalo(${id},${r.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Liberar reserva"><i class="fas fa-rotate-left"></i></button>`
+        : `<button onclick="reservarRegalo(${id},${r.id})" class="btn text-xs px-2 py-1 flex-shrink-0" style="background:rgba(143,191,127,.15);color:var(--good);border:1px solid var(--good)">Reservar</button>`}
+      <button onclick="eliminarRegalo(${id},${r.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
+    </div>`).join('')
+  : `<p class="text-sm text-[var(--ink-faint)] py-3">Sin regalos aún. ¡Agrega lo que te gustaría recibir!</p>`;
+
+  c.innerHTML = `
+    <div class="flex items-center gap-3 mb-1">
+      <span class="text-2xl">${m.emoji}</span>
+      <div>
+        <h3 class="serif text-xl font-medium">Lista de ${m.nombre}</h3>
+        <p class="text-xs text-[var(--ink-faint)]">La familia puede reservar regalos para no repetirse</p>
+      </div>
+    </div>
+    ${m.cumpleanos ? `<p class="text-xs text-[var(--gold-soft)] mb-3">🎂 ${formatCumple(m.cumpleanos)}${diasHastaCumple(m.cumpleanos)===0?' — ¡Hoy!':` · en ${diasHastaCumple(m.cumpleanos)} días`}</p>` : '<div class="mb-3"></div>'}
+    <div class="mb-4">${itemsHTML}</div>
+    <div class="flex gap-2 mb-3">
+      <input id="regalo-input-${id}" placeholder="¿Qué te gustaría recibir?" class="flex-1"
+        onkeydown="if(event.key==='Enter') agregarRegalo(${id})">
+      <button onclick="agregarRegalo(${id})" class="btn btn-gold px-3 flex-shrink-0"><i class="fas fa-plus"></i></button>
+    </div>
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 text-sm">Cerrar</button>`;
+}
+function agregarRegalo(familiarId){
+  const m = DB.familia.find(f=>f.id===familiarId);
+  if(!m) return;
+  if(!m.listaRegalos) m.listaRegalos = [];
+  const input = document.getElementById(`regalo-input-${familiarId}`);
+  const texto = input.value.trim();
+  if(!texto){ toast('Escribe el regalo primero', 'bad'); return; }
+  m.listaRegalos.push({ id:Date.now(), texto, reservadoPor:null });
+  guardar(); renderModalRegalos(familiarId); renderFamilia();
+  toast('Regalo agregado 🎁');
+}
+function reservarRegalo(familiarId, regaloId){
+  const m = DB.familia.find(f=>f.id===familiarId);
+  const r = m && m.listaRegalos && m.listaRegalos.find(x=>x.id===regaloId);
+  if(!r) return;
+  const quien = prompt(`¿Quién reserva este regalo?\n"${r.texto}"`);
+  if(!quien || !quien.trim()) return;
+  r.reservadoPor = quien.trim();
+  guardar(); renderModalRegalos(familiarId); renderFamilia();
+  toast(`Regalo reservado por ${r.reservadoPor} 🎁`);
+}
+function liberarRegalo(familiarId, regaloId){
+  const m = DB.familia.find(f=>f.id===familiarId);
+  const r = m && m.listaRegalos && m.listaRegalos.find(x=>x.id===regaloId);
+  if(!r) return;
+  r.reservadoPor = null;
+  guardar(); renderModalRegalos(familiarId); renderFamilia();
+  toast('Reserva liberada');
+}
+function eliminarRegalo(familiarId, regaloId){
+  const m = DB.familia.find(f=>f.id===familiarId);
+  if(!m || !m.listaRegalos) return;
+  m.listaRegalos = m.listaRegalos.filter(r=>r.id!==regaloId);
+  guardar(); renderModalRegalos(familiarId); renderFamilia();
+  toast('Regalo eliminado 🗑️');
 }
 function imagenAWebp(file, maxSize=480, calidad=0.85){
   return new Promise((resolve, reject)=>{
@@ -1686,7 +1817,30 @@ function renderEstadoInicio(){
       : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo parejo, nadie debe nada</p>`}
     </div>`;
 
-  div.innerHTML = eventoHTML + balanceHTML;
+  // --- Cumpleaños próximos (7 días) ---
+  const cumplesCercanos = DB.familia
+    .filter(m=>m.cumpleanos && diasHastaCumple(m.cumpleanos) <= 7)
+    .sort((a,b)=>diasHastaCumple(a.cumpleanos)-diasHastaCumple(b.cumpleanos));
+  const cumpleHTML = cumplesCercanos.map(m=>{
+    const dias = diasHastaCumple(m.cumpleanos);
+    return `
+      <div class="card p-3 flex items-center gap-3 cursor-pointer" onclick="mostrarPanel('familia')"
+           style="border-color:var(--gold); background:rgba(217,160,86,.07)">
+        <span class="text-2xl flex-shrink-0">${dias===0?'🎂':'🎁'}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--gold-soft)] mb-0.5">${dias===0?'¡Cumpleaños hoy!':'Cumpleaños próximo'}</p>
+          <p class="font-semibold text-sm truncate">${m.nombre} — ${formatCumple(m.cumpleanos)}</p>
+          ${dias > 0 ? `<p class="text-xs text-[var(--ink-faint)]">en ${dias} día${dias===1?'':'s'}</p>` : ''}
+        </div>
+        <button onclick="event.stopPropagation(); abrirListaRegalos(${m.id})"
+          class="btn text-xs px-2.5 py-1.5 flex-shrink-0 flex items-center gap-1"
+          style="background:rgba(217,160,86,.15); color:var(--gold-soft); border:1px solid rgba(217,160,86,.3);">
+          <i class="fas fa-gift"></i> Regalos
+        </button>
+      </div>`;
+  }).join('');
+
+  div.innerHTML = cumpleHTML + eventoHTML + balanceHTML;
 }
 
 /* ---------- Candado de acceso a la app ---------- */
