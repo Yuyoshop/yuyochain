@@ -936,12 +936,12 @@ function renderDetalleEvento(id){
     <!-- Lista de compras -->
     <div class="mb-3">
       <p class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide mb-2">🛒 Compras ${(e.compras||[]).length ? `(${(e.compras||[]).filter(c=>c.comprado).length}/${(e.compras||[]).length})` : ''}</p>
-      <div class="mb-3">${(e.compras||[]).length ? (e.compras||[]).map(c=>`
+      <div class="mb-3">${(e.compras||[]).length ? (e.compras||[]).map((c,ci)=>`
         <div class="flex items-center gap-2 py-1.5 border-b border-[var(--line)] last:border-0">
-          <input type="checkbox" ${c.comprado?'checked':''} onchange="toggleCompra(${e.id}, ${c.id}, this)" style="width:auto; accent-color:var(--sage); flex-shrink:0">
+          <input type="checkbox" ${c.comprado?'checked':''} onchange="toggleCompra(${e.id}, ${ci}, this)" style="width:auto; accent-color:var(--sage); flex-shrink:0">
           <span class="flex-1 text-sm ${c.comprado?'line-through text-[var(--ink-faint)]':''}">${c.item}${c.cantidad?' <span class="text-[var(--ink-faint)]">×'+c.cantidad+'</span>':''}</span>
           ${c.responsableId ? `<span class="text-xs text-[var(--ink-faint)]">${nombrePorId(c.responsableId)}</span>` : ''}
-          <button onclick="eliminarCompra(${e.id}, ${c.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
+          <button onclick="eliminarCompra(${e.id}, ${ci})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
         </div>`).join('') : `<p class="text-sm text-[var(--ink-faint)] py-2">Sin ítems. Agrega lo que hay que comprar.</p>`}</div>
       <div class="flex gap-2">
         <select id="compra-resp-${e.id}" class="flex-shrink-0" style="width:auto">
@@ -970,20 +970,20 @@ function agregarCompra(eventoId){
   guardar(); renderDetalleEvento(eventoId);
   toast('Ítem agregado 🛒');
 }
-function toggleCompra(eventoId, compraId, el){
+function toggleCompra(eventoId, ci, el){
   const e = DB.eventos.find(x=>x.id===eventoId);
-  const c = e && e.compras && e.compras.find(x=>x.id===compraId);
+  const c = e && e.compras && e.compras[ci];
   if(!c) return;
   if(el && el.checked){
-    el.checked = false; // no marcar todavía — esperar confirmación
-    mostrarPopupCompra(eventoId, compraId);
+    el.checked = false;
+    mostrarPopupCompra(eventoId, ci);
   } else {
     c.comprado = false; guardar(); renderDetalleEvento(eventoId);
   }
 }
-function mostrarPopupCompra(eventoId, compraId){
+function mostrarPopupCompra(eventoId, ci){
   const e = DB.eventos.find(x=>x.id===eventoId);
-  const c = e && e.compras && e.compras.find(x=>x.id===compraId);
+  const c = e && e.compras && e.compras[ci];
   if(!c) return;
   const back = document.getElementById('modalBackdrop');
   const cont = document.getElementById('modalContenido');
@@ -993,43 +993,42 @@ function mostrarPopupCompra(eventoId, compraId){
     <h3 class="serif text-xl font-medium mb-1">🛒 ${c.item}</h3>
     <p class="text-sm text-[var(--ink-faint)] mb-4">¿Quieres registrar este gasto en el evento?</p>
     <div class="space-y-3">
-      <input id="popup-monto" type="number" min="0" placeholder="¿Cuánto costó? S/" autofocus>
+      <input id="popup-monto" type="number" min="0" placeholder="¿Cuánto costó? S/">
       <select id="popup-pago">
         ${DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('')}
       </select>
     </div>
     <div class="flex flex-col gap-2 mt-4">
-      <button onclick="confirmarCompraConGasto(${eventoId}, ${compraId})" class="btn btn-primary w-full py-3">
+      <button onclick="confirmarCompraConGasto(${eventoId}, ${ci})" class="btn btn-primary w-full py-3">
         <i class="fas fa-receipt"></i> Registrar gasto y marcar
       </button>
-      <button onclick="confirmarCompraSinGasto(${eventoId}, ${compraId})" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-2">
+      <button onclick="confirmarCompraSinGasto(${eventoId}, ${ci})" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-2">
         Solo marcar como comprado (sin registrar gasto)
       </button>
       <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 text-sm">Cancelar</button>
     </div>`;
 }
-function confirmarCompraConGasto(eventoId, compraId){
+function confirmarCompraConGasto(eventoId, ci){
   const e = DB.eventos.find(x=>x.id===eventoId);
-  const c = e && e.compras && e.compras.find(x=>x.id===compraId);
+  const c = e && e.compras && e.compras[ci];
   if(!c) return;
   const monto = parseFloat(document.getElementById('popup-monto').value);
   const pagadoPor = +document.getElementById('popup-pago').value;
   if(!monto || monto <= 0){ toast('Ingresa el monto gastado', 'bad'); return; }
-  // Crear gasto vinculado al evento
   const participantes = DB.familia.map(f=>f.id);
   DB.gastos.push({ id:Date.now(), descripcion:c.item, monto, pagadoPor, participantes, aportes:null, eventoId, boleta:null });
   c.comprado = true;
   guardar(); closeModal(); renderDetalleEvento(eventoId); renderBalance(); renderEventos();
   toast(`"${c.item}" registrado como gasto ✅`);
 }
-function confirmarCompraSinGasto(eventoId, compraId){
+function confirmarCompraSinGasto(eventoId, ci){
   const e = DB.eventos.find(x=>x.id===eventoId);
-  const c = e && e.compras && e.compras.find(x=>x.id===compraId);
+  const c = e && e.compras && e.compras[ci];
   if(c){ c.comprado = true; guardar(); closeModal(); renderDetalleEvento(eventoId); }
 }
-function eliminarCompra(eventoId, compraId){
+function eliminarCompra(eventoId, ci){
   const e = DB.eventos.find(x=>x.id===eventoId);
-  if(e && e.compras){ e.compras = e.compras.filter(c=>c.id!==compraId); }
+  if(e && e.compras){ e.compras.splice(ci, 1); }
   guardar(); renderDetalleEvento(eventoId);
   toast('Ítem eliminado 🗑️');
 }
