@@ -186,7 +186,7 @@
     <!-- Ver secciones -->
     <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Ver secciones</p>
     <div class="grid grid-cols-4 sm:grid-cols-7 gap-3 max-w-4xl mx-auto">
-      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gasto')"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('evento')"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
       <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-seedling"></i><span class="glass-label">Familia</span></button>
@@ -1666,6 +1666,10 @@ function mostrarPanel(nombre, fromHistory){
   if(nombre==='resumenanual'){ renderResumenAnual(); }
 }
 function irInicio(){ mostrarPanel('inicio'); }
+function verHistorialGastos(){
+  mostrarPanel('gasto');
+  setTimeout(()=>{ const h = document.getElementById('historialGastos'); if(h) h.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
+}
 function iniciarAsistente(pasoInicial){
   sesionRealizado = [];
   mostrarPanel(pasoInicial);
