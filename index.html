@@ -939,6 +939,99 @@ function eliminarTarea(eventoId, tareaId){
   guardar(); renderDetalleEvento(eventoId); renderEventos();
   toast('Tarea eliminada 🗑️');
 }
+function generarInformeEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+
+  const dias = diasRestantes(e.fecha);
+  const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  // Gastos del evento
+  const gastosEvento = DB.gastos.filter(g=>g.eventoId===e.id);
+  const totalGastado = gastosEvento.reduce((s,g)=>s+g.monto, 0);
+
+  // Deudas del evento
+  const deudasEvento = [];
+  gastosEvento.forEach(g=>{
+    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+    if(tieneAportes){
+      Object.entries(g.aportes).filter(([pid])=>+pid!==g.pagadoPor).forEach(([pid,monto])=>{
+        deudasEvento.push({ de:+pid, a:g.pagadoPor, monto:+monto });
+      });
+    } else {
+      const partic = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
+      const parte = g.monto / partic.length;
+      partic.filter(pid=>pid!==g.pagadoPor).forEach(pid=>{
+        deudasEvento.push({ de:pid, a:g.pagadoPor, monto:parte });
+      });
+    }
+  });
+  // Consolidar deudas
+  const mapa = {};
+  deudasEvento.forEach(d=>{
+    const k=`${d.de}-${d.a}`;
+    mapa[k] = (mapa[k]||{de:d.de, a:d.a, monto:0});
+    mapa[k].monto += d.monto;
+  });
+
+  // Fotos del evento
+  const fotosEvento = DB.memorias.filter(m=>m.eventoId===e.id);
+
+  // Tareas
+  const tareas = e.tareas || [];
+  const tareasHechas = tareas.filter(t=>t.hecha).length;
+
+  // --- Construir mensaje ---
+  let msg = `━━━━━━━━━━━━━━━━━\n`;
+  msg += `${e.emoji||'🎉'} *INFORME: ${e.titulo.toUpperCase()}*\n`;
+  msg += `━━━━━━━━━━━━━━━━━\n\n`;
+  msg += `📅 ${fechaStr}\n`;
+  msg += dias >= 0 ? `⏳ Faltan *${dias} días*\n` : `✅ Evento realizado\n`;
+
+  if(e.presupuesto){
+    const pct = (totalGastado/e.presupuesto*100).toFixed(0);
+    msg += `\n💰 *PRESUPUESTO*\n`;
+    msg += `Presupuestado: S/${e.presupuesto.toLocaleString()}\n`;
+    msg += `Gastado: S/${totalGastado.toLocaleString()} (${pct}%)\n`;
+    msg += `Restante: S/${(e.presupuesto-totalGastado).toLocaleString()}\n`;
+  } else if(totalGastado > 0){
+    msg += `\n💰 *TOTAL GASTADO:* S/${totalGastado.toLocaleString()}\n`;
+  }
+
+  if(gastosEvento.length){
+    msg += `\n🧾 *GASTOS*\n`;
+    gastosEvento.forEach(g=>{
+      msg += `• ${g.descripcion} — S/${g.monto.toLocaleString()} _(pagó ${nombrePorId(g.pagadoPor)})_\n`;
+    });
+  }
+
+  const deudas = Object.values(mapa);
+  if(deudas.length){
+    msg += `\n💸 *QUIÉN DEBE QUÉ*\n`;
+    deudas.forEach(d=>{
+      msg += `• *${nombrePorId(d.de)}* → ${nombrePorId(d.a)}: S/${d.monto.toFixed(2)}\n`;
+    });
+  }
+
+  if(tareas.length){
+    msg += `\n📋 *TAREAS* (${tareasHechas}/${tareas.length} completadas)\n`;
+    tareas.forEach(t=>{
+      const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
+      msg += `${t.hecha?'✅':'⬜'} ${t.texto}${resp}\n`;
+    });
+  }
+
+  if(fotosEvento.length){
+    msg += `\n📸 *FOTOS GUARDADAS:* ${fotosEvento.length}\n`;
+    fotosEvento.forEach(f=>{ msg += `• ${f.titulo}\n`; });
+  }
+
+  msg += `\n━━━━━━━━━━━━━━━━━\n`;
+  msg += `🌿 _YuyoChain • Familia Unida_`;
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 function compartirEventoWhatsApp(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
@@ -958,96 +1051,6 @@ function compartirEventoWhatsApp(id){
     });
   }
   msg += `\n🌿 _YuyoChain • Familia Unida_`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-}
-
-function generarInformeEvento(id){
-  const e = DB.eventos.find(x=>x.id===id);
-  if(!e) return;
-  const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
-  const dias = diasRestantes(e.fecha);
-  const estadoStr = e.completado ? '✅ Completado' : dias >= 0 ? `⏳ Faltan ${dias} días` : `📅 Hace ${Math.abs(dias)} días`;
-
-  // Gastos del evento
-  const gastosEvento = DB.gastos.filter(g=>g.eventoId===e.id);
-  const totalGastado = gastosEvento.reduce((s,g)=>s+g.monto, 0);
-
-  // Deudas del evento
-  const deudasEvento = {};
-  gastosEvento.forEach(g=>{
-    const partes = g.participantes||[];
-    if(!partes.length) return;
-    const montoParticipante = g.monto / partes.length;
-    partes.forEach(pid=>{
-      if(pid === g.pagadoPor) return;
-      const key = `${pid}-${g.pagadoPor}`;
-      deudasEvento[key] = (deudasEvento[key]||{de:pid, a:g.pagadoPor, monto:0});
-      deudasEvento[key].monto += montoParticipante;
-    });
-  });
-
-  // Fotos del evento
-  const fotosEvento = (DB.memorias||[]).filter(m=>m.eventoId===e.id);
-
-  // Tareas
-  const tareas = e.tareas||[];
-  const tareasHechas = tareas.filter(t=>t.hecha).length;
-
-  // Construir mensaje
-  let msg = `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `${e.emoji||'🎉'} *INFORME: ${e.titulo.toUpperCase()}*\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `📅 ${fechaStr}\n`;
-  msg += `${estadoStr}\n\n`;
-
-  if(e.presupuesto){
-    const pct = Math.round((totalGastado/e.presupuesto)*100);
-    const barLen = 10;
-    const filled = Math.min(Math.round(pct/10), barLen);
-    const bar = '█'.repeat(filled) + '░'.repeat(barLen-filled);
-    msg += `💰 *Presupuesto*\n`;
-    msg += `S/${totalGastado.toLocaleString()} de S/${e.presupuesto.toLocaleString()} (${pct}%)\n`;
-    msg += `[${bar}]\n\n`;
-  } else if(totalGastado > 0){
-    msg += `💰 *Total gastado:* S/${totalGastado.toLocaleString()}\n\n`;
-  }
-
-  if(gastosEvento.length){
-    msg += `🧾 *Detalle de gastos (${gastosEvento.length}):*\n`;
-    gastosEvento.forEach(g=>{
-      const quien = nombrePorId(g.pagadoPor)||'?';
-      msg += `• ${g.descripcion} — S/${g.monto.toLocaleString()} _(pagó ${quien})_\n`;
-    });
-    msg += '\n';
-  }
-
-  const deudas = Object.values(deudasEvento).filter(d=>d.monto>=0.01);
-  if(deudas.length){
-    msg += `💸 *Quién debe qué:*\n`;
-    deudas.forEach(d=>{
-      msg += `• ${nombrePorId(d.de)} → ${nombrePorId(d.a)}: S/${d.monto.toFixed(2)}\n`;
-    });
-    msg += '\n';
-  }
-
-  if(tareas.length){
-    msg += `📋 *Tareas (${tareasHechas}/${tareas.length} completadas):*\n`;
-    tareas.forEach(t=>{
-      const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
-      msg += `${t.hecha?'✅':'⬜'} ${t.texto}${resp}\n`;
-    });
-    msg += '\n';
-  }
-
-  if(fotosEvento.length){
-    msg += `📸 *Fotos guardadas:* ${fotosEvento.length}\n`;
-    fotosEvento.forEach(m=> msg += `  • ${m.titulo}\n`);
-    msg += '\n';
-  }
-
-  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `🌿 _YuyoChain • Familia Unida_`;
-
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
