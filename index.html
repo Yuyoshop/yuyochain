@@ -151,20 +151,8 @@
   <!-- ============ PANEL: INICIO ============ -->
   <div id="panel-inicio" class="panel panel-activa">
 
-    <!-- Encabezado compacto -->
-    <div class="flex items-center gap-3 mb-6">
-      <svg viewBox="0 0 48 48" width="36" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="flex-shrink-0">
-        <defs><linearGradient id="logoGradHero" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--sage)"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs>
-        <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#logoGradHero)" stroke-width="2.5" opacity="0.65"/>
-        <path d="M24 39 C24 30 24 21 24 13" stroke="url(#logoGradHero)" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#logoGradHero)"/>
-        <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#logoGradHero)" opacity="0.85"/>
-      </svg>
-      <div>
-        <h1 class="serif text-2xl font-semibold leading-none">YuyoChain</h1>
-        <p class="text-[var(--ink-faint)] text-xs mt-0.5">Nuestra familia, siempre conectada.</p>
-      </div>
-    </div>
+    <!-- Saludo breve -->
+    <p class="text-[var(--ink-faint)] text-sm mb-5">Nuestra familia, siempre conectada.</p>
 
     <!-- Estado actual (se rellena por JS) -->
     <div id="estadoInicio" class="mb-6 space-y-3"></div>
@@ -185,14 +173,15 @@
 
     <!-- Ver secciones -->
     <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Ver secciones</p>
-    <div class="grid grid-cols-4 sm:grid-cols-7 gap-3 max-w-4xl mx-auto">
-      <button class="glass-btn" style="--glow:var(--gold)" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
-      <button class="glass-btn" style="--glow:var(--sage)" onclick="verListaEventos()"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
-      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
-      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-seedling"></i><span class="glass-label">Familia</span></button>
-      <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
-      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
-      <button class="glass-btn" style="--glow:var(--terracotta)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
+    <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-5xl mx-auto">
+      <button class="glass-btn" style="--glow:#fbbf24" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
+      <button class="glass-btn" style="--glow:#fb923c" onclick="verListaEventos()"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
+      <button class="glass-btn" style="--glow:#f97316" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar"></i><span class="glass-label">Calendario</span></button>
+      <button class="glass-btn" style="--glow:#f87171" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
+      <button class="glass-btn" style="--glow:#facc15" onclick="mostrarPanel('familia')"><i class="fas fa-people-roof"></i><span class="glass-label">Familia</span></button>
+      <button class="glass-btn" style="--glow:#ef4444" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
+      <button class="glass-btn" style="--glow:#fdba74" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
+      <button class="glass-btn" style="--glow:#eab308" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
     </div>
   </div>
 
@@ -258,7 +247,7 @@
         </div>
 
         <div id="g-bloque-igual" class="space-y-3">
-          <input id="g-monto" type="number" placeholder="Monto ($)">
+          <input id="g-monto" type="number" placeholder="Monto (S/)">
           <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
           <div id="g-participantes" class="flex flex-wrap gap-2"></div>
         </div>
@@ -1303,7 +1292,7 @@ function editarGasto(id){
       </div>
 
       <div id="ge-bloque-igual" class="space-y-3 ${modoIgual?'':'hidden'}">
-        <input id="ge-monto" type="number" value="${modoIgual? g.monto : ''}" placeholder="Monto ($)">
+        <input id="ge-monto" type="number" value="${modoIgual? g.monto : ''}" placeholder="Monto (S/)">
         <p class="text-xs text-[var(--ink-faint)] mt-1">¿Quién participa en el reparto?</p>
         <div class="flex flex-wrap gap-2">
           ${DB.familia.map(f=>`<label class="chip flex items-center gap-1 bg-[var(--bg-soft)] border border-[var(--line)] cursor-pointer">
