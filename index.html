@@ -279,6 +279,7 @@
       <p class="text-[var(--ink-faint)] text-center mb-6">Guarda una foto de este momento</p>
       <div class="card p-6 space-y-3">
         <input id="m-titulo" placeholder="¿Qué recuerdas de este momento?">
+        <select id="m-evento"><option value="">Sin evento (foto general)</option></select>
         <input id="m-foto" type="file" accept="image/*">
         <button onclick="guardarMemoria()" class="btn btn-gold w-full py-3 mt-2">Guardar y finalizar</button>
         <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
@@ -889,9 +890,14 @@ function renderDetalleEvento(id){
   c.innerHTML = `
     <div class="flex items-center justify-between mb-3">
       <h3 class="serif text-2xl font-medium">${e.emoji||'🎉'} ${e.titulo}</h3>
-      <button onclick="compartirEventoWhatsApp(${e.id})" class="btn btn-primary px-3 py-2 text-sm flex items-center gap-1.5" title="Compartir por WhatsApp">
-        <i class="fab fa-whatsapp"></i> Compartir
-      </button>
+      <div class="flex gap-2">
+        <button onclick="compartirEventoWhatsApp(${e.id})" class="btn btn-primary px-3 py-2 text-sm flex items-center gap-1.5" title="Compartir por WhatsApp">
+          <i class="fab fa-whatsapp"></i> Compartir
+        </button>
+        <button onclick="generarInformeEvento(${e.id})" class="btn btn-gold px-3 py-2 text-sm flex items-center gap-1.5" title="Generar informe completo">
+          <i class="fas fa-file-lines"></i> Informe
+        </button>
+      </div>
     </div>
     <p class="text-[var(--gold-soft)] text-sm mb-4">${fechaStr} · ${dias >= 0 ? `${dias} días` : 'ya pasó'}</p>
     ${presupuestoHTML}
@@ -952,6 +958,96 @@ function compartirEventoWhatsApp(id){
     });
   }
   msg += `\n🌿 _YuyoChain • Familia Unida_`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function generarInformeEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const dias = diasRestantes(e.fecha);
+  const estadoStr = e.completado ? '✅ Completado' : dias >= 0 ? `⏳ Faltan ${dias} días` : `📅 Hace ${Math.abs(dias)} días`;
+
+  // Gastos del evento
+  const gastosEvento = DB.gastos.filter(g=>g.eventoId===e.id);
+  const totalGastado = gastosEvento.reduce((s,g)=>s+g.monto, 0);
+
+  // Deudas del evento
+  const deudasEvento = {};
+  gastosEvento.forEach(g=>{
+    const partes = g.participantes||[];
+    if(!partes.length) return;
+    const montoParticipante = g.monto / partes.length;
+    partes.forEach(pid=>{
+      if(pid === g.pagadoPor) return;
+      const key = `${pid}-${g.pagadoPor}`;
+      deudasEvento[key] = (deudasEvento[key]||{de:pid, a:g.pagadoPor, monto:0});
+      deudasEvento[key].monto += montoParticipante;
+    });
+  });
+
+  // Fotos del evento
+  const fotosEvento = (DB.memorias||[]).filter(m=>m.eventoId===e.id);
+
+  // Tareas
+  const tareas = e.tareas||[];
+  const tareasHechas = tareas.filter(t=>t.hecha).length;
+
+  // Construir mensaje
+  let msg = `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `${e.emoji||'🎉'} *INFORME: ${e.titulo.toUpperCase()}*\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `📅 ${fechaStr}\n`;
+  msg += `${estadoStr}\n\n`;
+
+  if(e.presupuesto){
+    const pct = Math.round((totalGastado/e.presupuesto)*100);
+    const barLen = 10;
+    const filled = Math.min(Math.round(pct/10), barLen);
+    const bar = '█'.repeat(filled) + '░'.repeat(barLen-filled);
+    msg += `💰 *Presupuesto*\n`;
+    msg += `S/${totalGastado.toLocaleString()} de S/${e.presupuesto.toLocaleString()} (${pct}%)\n`;
+    msg += `[${bar}]\n\n`;
+  } else if(totalGastado > 0){
+    msg += `💰 *Total gastado:* S/${totalGastado.toLocaleString()}\n\n`;
+  }
+
+  if(gastosEvento.length){
+    msg += `🧾 *Detalle de gastos (${gastosEvento.length}):*\n`;
+    gastosEvento.forEach(g=>{
+      const quien = nombrePorId(g.pagadoPor)||'?';
+      msg += `• ${g.descripcion} — S/${g.monto.toLocaleString()} _(pagó ${quien})_\n`;
+    });
+    msg += '\n';
+  }
+
+  const deudas = Object.values(deudasEvento).filter(d=>d.monto>=0.01);
+  if(deudas.length){
+    msg += `💸 *Quién debe qué:*\n`;
+    deudas.forEach(d=>{
+      msg += `• ${nombrePorId(d.de)} → ${nombrePorId(d.a)}: S/${d.monto.toFixed(2)}\n`;
+    });
+    msg += '\n';
+  }
+
+  if(tareas.length){
+    msg += `📋 *Tareas (${tareasHechas}/${tareas.length} completadas):*\n`;
+    tareas.forEach(t=>{
+      const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
+      msg += `${t.hecha?'✅':'⬜'} ${t.texto}${resp}\n`;
+    });
+    msg += '\n';
+  }
+
+  if(fotosEvento.length){
+    msg += `📸 *Fotos guardadas:* ${fotosEvento.length}\n`;
+    fotosEvento.forEach(m=> msg += `  • ${m.titulo}\n`);
+    msg += '\n';
+  }
+
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `🌿 _YuyoChain • Familia Unida_`;
+
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -1659,6 +1755,10 @@ function actualizarTotalPersonalizadoGasto(){
 function poblarFormMemoria(){
   document.getElementById('m-titulo').value = '';
   document.getElementById('m-foto').value = '';
+  const eventosActivos = DB.eventos.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  document.getElementById('m-evento').innerHTML =
+    `<option value="">Sin evento (foto general)</option>` +
+    eventosActivos.map(e=>`<option value="${e.id}">${e.emoji||'🎉'} ${e.titulo}</option>`).join('');
 }
 
 function guardarEvento(){
@@ -1734,9 +1834,11 @@ async function guardarMemoria(){
   const titulo = document.getElementById('m-titulo').value.trim() || 'Sin título';
   const file = document.getElementById('m-foto').files[0];
   if(!file){ toast('Selecciona una foto', 'bad'); return; }
+  const eventoIdStr = document.getElementById('m-evento').value;
+  const eventoId = eventoIdStr ? +eventoIdStr : null;
   try{
     const img = await imagenAWebp(file, 720, 0.85);
-    DB.memorias.push({ id:Date.now(), titulo, img });
+    DB.memorias.push({ id:Date.now(), titulo, img, eventoId });
     guardar(); renderMemorias();
     toast('Recuerdo guardado (.webp) 📷');
     avanzarAsistente(`📷 Memoria guardada: "${titulo}"`);
