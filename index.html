@@ -198,7 +198,7 @@
 
   <!-- ============ PANEL: EVENTO (paso 1) ============ -->
   <div id="panel-evento" class="panel">
-    <div class="max-w-md mx-auto">
+    <div id="evento-form" class="max-w-md mx-auto">
       <h2 class="serif text-3xl font-medium mb-1 text-center">Nuevo evento</h2>
       <p class="text-[var(--ink-faint)] text-center mb-6">Agrega una fecha importante para la familia</p>
       <div class="card p-6 space-y-3">
@@ -1671,11 +1671,14 @@ function verHistorialGastos(){
   setTimeout(()=>{ const h = document.getElementById('historialGastos'); if(h) h.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
 }
 function verListaEventos(){
+  const f = document.getElementById('evento-form');
+  if(f) f.style.display = 'none';
   mostrarPanel('evento');
-  setTimeout(()=>{ const h = document.getElementById('proximos'); if(h) h.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
 }
 function iniciarAsistente(pasoInicial){
   sesionRealizado = [];
+  const f = document.getElementById('evento-form');
+  if(f) f.style.display = '';
   mostrarPanel(pasoInicial);
 }
 function avanzarAsistente(textoResumen){
