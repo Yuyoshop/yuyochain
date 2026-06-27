@@ -200,12 +200,31 @@
   <div id="panel-evento" class="panel">
     <div id="evento-form" class="max-w-md mx-auto">
       <h2 class="serif text-3xl font-medium mb-1 text-center">Nuevo evento</h2>
-      <p class="text-[var(--ink-faint)] text-center mb-6">Agrega una fecha importante para la familia</p>
+      <p class="text-[var(--ink-faint)] text-center mb-4">Agrega una fecha importante para la familia</p>
+      <!-- Plantillas rápidas -->
+      <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
+        <button onclick="aplicarPlantilla('')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">Personalizado</button>
+        <button onclick="aplicarPlantilla('cumple')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">🎂 Cumpleaños</button>
+        <button onclick="aplicarPlantilla('navidad')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">🎄 Navidad</button>
+        <button onclick="aplicarPlantilla('añonuevo')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">🎆 Año Nuevo</button>
+        <button onclick="aplicarPlantilla('paseo')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">🏖️ Paseo</button>
+        <button onclick="aplicarPlantilla('reunion')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">🍽️ Reunión</button>
+      </div>
       <div class="card p-6 space-y-3">
         <input id="ev-titulo" placeholder="¿Qué evento es?">
         <input id="ev-fecha" type="date">
         <input id="ev-emoji" placeholder="Emoji (opcional)" value="🎉">
         <input id="ev-presupuesto" type="number" min="0" placeholder="Presupuesto estimado (S/) — opcional">
+        <!-- Recordatorios -->
+        <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-1">
+          <p class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide mb-2">🔔 Recordarme</p>
+          <div class="grid grid-cols-2 gap-1">
+            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="rec-1m" value="1m" style="width:auto; accent-color:var(--sage)"> 1 mes antes</label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="rec-1s" value="1s" style="width:auto; accent-color:var(--sage)"> 1 semana antes</label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="rec-3d" value="3d" checked style="width:auto; accent-color:var(--sage)"> 3 días antes</label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="rec-1d" value="1d" checked style="width:auto; accent-color:var(--sage)"> El día anterior</label>
+          </div>
+        </div>
         <button onclick="guardarEvento()" class="btn btn-primary w-full py-3 mt-2">Guardar y continuar</button>
         <button onclick="saltarPasoAsistente()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-1">Saltar este paso</button>
       </div>
@@ -914,7 +933,53 @@ function renderDetalleEvento(id){
         <button onclick="agregarTarea(${e.id})" class="btn btn-gold px-3 flex-shrink-0"><i class="fas fa-plus"></i></button>
       </div>
     </div>
+    <!-- Lista de compras -->
+    <div class="mb-3">
+      <p class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide mb-2">🛒 Compras ${(e.compras||[]).length ? `(${(e.compras||[]).filter(c=>c.comprado).length}/${(e.compras||[]).length})` : ''}</p>
+      <div class="mb-3">${(e.compras||[]).length ? (e.compras||[]).map(c=>`
+        <div class="flex items-center gap-2 py-1.5 border-b border-[var(--line)] last:border-0">
+          <input type="checkbox" ${c.comprado?'checked':''} onchange="toggleCompra(${e.id}, ${c.id})" style="width:auto; accent-color:var(--sage); flex-shrink:0">
+          <span class="flex-1 text-sm ${c.comprado?'line-through text-[var(--ink-faint)]':''}">${c.item}${c.cantidad?' <span class="text-[var(--ink-faint)]">×'+c.cantidad+'</span>':''}</span>
+          ${c.responsableId ? `<span class="text-xs text-[var(--ink-faint)]">${nombrePorId(c.responsableId)}</span>` : ''}
+          <button onclick="eliminarCompra(${e.id}, ${c.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
+        </div>`).join('') : `<p class="text-sm text-[var(--ink-faint)] py-2">Sin ítems. Agrega lo que hay que comprar.</p>`}</div>
+      <div class="flex gap-2">
+        <select id="compra-resp-${e.id}" class="flex-shrink-0" style="width:auto">
+          <option value="">¿Quién?</option>
+          ${DB.familia.map(f=>`<option value="${f.id}">${f.emoji} ${f.nombre}</option>`).join('')}
+        </select>
+        <input id="compra-input-${e.id}" placeholder="¿Qué comprar?" onkeydown="if(event.key==='Enter') agregarCompra(${e.id})" class="flex-1">
+        <input id="compra-cant-${e.id}" placeholder="Cant." style="width:60px">
+        <button onclick="agregarCompra(${e.id})" class="btn btn-gold px-3 flex-shrink-0"><i class="fas fa-plus"></i></button>
+      </div>
+    </div>
     <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 mt-1 text-sm">Cerrar</button>`;
+}
+function agregarCompra(eventoId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  if(!e) return;
+  if(!e.compras) e.compras = [];
+  const input = document.getElementById(`compra-input-${eventoId}`);
+  const item = input.value.trim();
+  if(!item){ toast('Escribe el ítem primero', 'bad'); return; }
+  const cantInput = document.getElementById(`compra-cant-${eventoId}`);
+  const cantidad = cantInput.value.trim();
+  const respSel = document.getElementById(`compra-resp-${eventoId}`);
+  const responsableId = respSel.value ? +respSel.value : null;
+  e.compras.push({ id:Date.now(), item, cantidad, responsableId, comprado:false });
+  guardar(); renderDetalleEvento(eventoId);
+  toast('Ítem agregado 🛒');
+}
+function toggleCompra(eventoId, compraId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  const c = e && e.compras && e.compras.find(x=>x.id===compraId);
+  if(c){ c.comprado = !c.comprado; guardar(); renderDetalleEvento(eventoId); }
+}
+function eliminarCompra(eventoId, compraId){
+  const e = DB.eventos.find(x=>x.id===eventoId);
+  if(e && e.compras){ e.compras = e.compras.filter(c=>c.id!==compraId); }
+  guardar(); renderDetalleEvento(eventoId);
+  toast('Ítem eliminado 🗑️');
 }
 function agregarTarea(eventoId){
   const e = DB.eventos.find(x=>x.id===eventoId);
@@ -1019,6 +1084,17 @@ function generarInformeEvento(id){
     tareas.forEach(t=>{
       const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
       msg += `${t.hecha?'✅':'⬜'} ${t.texto}${resp}\n`;
+    });
+  }
+
+  const compras = e.compras || [];
+  if(compras.length){
+    const compradas = compras.filter(c=>c.comprado).length;
+    msg += `\n🛒 *COMPRAS* (${compradas}/${compras.length} comprados)\n`;
+    compras.forEach(c=>{
+      const quien = c.responsableId ? ` — ${nombrePorId(c.responsableId)}` : '';
+      const cant = c.cantidad ? ` ×${c.cantidad}` : '';
+      msg += `${c.comprado?'✅':'⬜'} ${c.item}${cant}${quien}\n`;
     });
   }
 
@@ -1776,13 +1852,38 @@ function poblarFormMemoria(){
     eventosActivos.map(e=>`<option value="${e.id}">${e.emoji||'🎉'} ${e.titulo}</option>`).join('');
 }
 
+const PLANTILLAS = {
+  cumple:   { emoji:'🎂', tareas:['Torta','Decoración','Invitaciones','Música','Fotos'], compras:['Globos','Velas','Platos y vasos','Servilletas'] },
+  navidad:  { emoji:'🎄', tareas:['Árbol y adornos','Panetón y chocolates','Regalos','Cena navideña','Música'], compras:['Panetón','Chocolates','Papel regalo','Pilas para juguetes'] },
+  añonuevo: { emoji:'🎆', tareas:['Bebidas y piqueos','Comida principal','Fuegos artificiales','Música','Decoración'], compras:['Uvas (12)','Bebidas','Cotillón','Snacks'] },
+  paseo:    { emoji:'🏖️', tareas:['Tickets / reserva','Alojamiento','Maletas listas','Snacks para el viaje','Itinerario'], compras:['Bloqueador solar','Snacks','Agua','Botiquín'] },
+  reunion:  { emoji:'🍽️', tareas:['Comida principal','Bebidas','Lugar / local','Música','Postre'], compras:['Ingredientes','Bebidas','Hielo','Descartables'] },
+};
+let _plantillaTareas = [];
+let _plantillaCompras = [];
+
+function aplicarPlantilla(nombre){
+  document.querySelectorAll('.plantilla-btn').forEach(b=> b.classList.remove('border-[var(--sage)]','text-[var(--sage)]','bg-[var(--surface-2)]'));
+  event.currentTarget.classList.add('border-[var(--sage)]','text-[var(--sage)]','bg-[var(--surface-2)]');
+  if(!nombre){ _plantillaTareas=[]; _plantillaCompras=[]; return; }
+  const p = PLANTILLAS[nombre];
+  document.getElementById('ev-emoji').value = p.emoji;
+  _plantillaTareas = p.tareas.map(t=>({id:Date.now()+Math.random(), texto:t, responsableId:null, hecha:false}));
+  _plantillaCompras = p.compras.map(c=>({id:Date.now()+Math.random(), item:c, cantidad:'', responsableId:null, comprado:false}));
+}
+
 function guardarEvento(){
   const titulo = document.getElementById('ev-titulo').value.trim();
   const fecha = document.getElementById('ev-fecha').value;
   const emoji = document.getElementById('ev-emoji').value || '🎉';
   const presupuesto = parseFloat(document.getElementById('ev-presupuesto').value) || null;
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
-  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto, tareas:[] });
+  const recordatorios = ['1m','1s','3d','1d'].filter(v=> document.getElementById('rec-'+v)?.checked);
+  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto,
+    tareas: _plantillaTareas.length ? [..._plantillaTareas] : [],
+    compras: _plantillaCompras.length ? [..._plantillaCompras] : [],
+    recordatorios });
+  _plantillaTareas=[]; _plantillaCompras=[];
   guardar(); renderEventos(); renderCalendario();
   toast(`Evento "${titulo}" agregado 📅`);
   avanzarAsistente(`📅 Evento creado: "${titulo}"`);
@@ -2102,18 +2203,35 @@ function compartirGastosHogarWhatsApp(){
 }
 
 /* ---------- Recordatorios con Notification API ---------- */
+const REC_DIAS = { '1m':30, '1s':7, '3d':3, '1d':1 };
 function verificarRecordatorios(){
   if(!('Notification' in window)) return;
   const hoy = new Date().toISOString().split('T')[0];
-  const eventosCercanos = DB.eventos.filter(e=>!e.completado && diasRestantes(e.fecha) >= 0 && diasRestantes(e.fecha) <= 7);
-  if(!eventosCercanos.length) return;
+
+  // Recopilar notificaciones pendientes según recordatorios personalizados de cada evento
+  const pendientes = [];
+  DB.eventos.filter(e=>!e.completado).forEach(e=>{
+    const dias = diasRestantes(e.fecha);
+    if(dias < 0) return;
+    const recs = e.recordatorios && e.recordatorios.length ? e.recordatorios : ['3d','1d'];
+    recs.forEach(r=>{
+      const umbral = REC_DIAS[r];
+      if(umbral === undefined) return;
+      // Disparar si estamos exactamente en ese umbral (o ya pasó pero en el mismo día)
+      if(dias <= umbral){
+        const clave = `yc_notif_${e.id}_${r}_${hoy}`;
+        if(!localStorage.getItem(clave)){
+          const msg = dias === 0 ? '¡Es hoy!' : `Faltan ${dias} día${dias===1?'':'s'}`;
+          pendientes.push({ e, msg, clave });
+        }
+      }
+    });
+  });
+
+  if(!pendientes.length) return;
 
   function mostrarNotifs(){
-    eventosCercanos.forEach(e=>{
-      const clave = `yc_notif_${e.id}_${hoy}`;
-      if(localStorage.getItem(clave)) return;
-      const dias = diasRestantes(e.fecha);
-      const msg = dias === 0 ? '¡Es hoy!' : `Faltan ${dias} día${dias===1?'':'s'}`;
+    pendientes.forEach(({e, msg, clave})=>{
       new Notification(`${e.emoji||'🎉'} ${e.titulo}`, { body: msg, icon: '' });
       localStorage.setItem(clave, '1');
     });
@@ -2122,8 +2240,7 @@ function verificarRecordatorios(){
   if(Notification.permission === 'granted'){
     mostrarNotifs();
   } else if(Notification.permission === 'default'){
-    // Solo pedimos permiso si hay eventos en los próximos 3 días (más urgente)
-    const urgentes = eventosCercanos.filter(e=>diasRestantes(e.fecha) <= 3);
+    const urgentes = pendientes.filter(({e})=>diasRestantes(e.fecha) <= 3);
     if(urgentes.length){
       Notification.requestPermission().then(p=>{ if(p==='granted') mostrarNotifs(); });
     }
