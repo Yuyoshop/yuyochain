@@ -4,17 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YuyoChain • Familia Unida</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236366f1'/%3E%3Cstop offset='1' stop-color='%23a78bfa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23111118'/%3E%3Crect x='5' y='16' width='38' height='23' rx='11.5' fill='none' stroke='url(%23g)' stroke-width='2.5' opacity='0.65'/%3E%3Cpath d='M24 39 C24 30 24 21 24 13' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z' fill='url(%23g)'/%3E%3Cpath d='M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z' fill='url(%23g)' opacity='0.85'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ea580c'/%3E%3Cstop offset='1' stop-color='%23dc2626'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23110a00'/%3E%3Crect x='5' y='16' width='38' height='23' rx='11.5' fill='none' stroke='url(%23g)' stroke-width='2.5' opacity='0.65'/%3E%3Cpath d='M24 39 C24 30 24 21 24 13' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z' fill='url(%23g)'/%3E%3Cpath d='M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z' fill='url(%23g)' opacity='0.85'/%3E%3C/svg%3E">
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#111118; --bg-soft:#18181f; --surface:#1f1f2a; --surface-2:#26263a;
-    --line:#38385a; --sage:#6366f1; --sage-soft:#a5b4fc; --gold:#a78bfa; --gold-soft:#c4b5fd;
-    --terracotta:#f472b6; --ink:#eeeeff; --ink-dim:#9d9dbd; --ink-faint:#5c5c7a;
-    --good:#4ade80; --bad:#f87171;
+    --bg:#110a00; --bg-soft:#1a1200; --surface:#221600; --surface-2:#2e1e00;
+    --line:#4a3010; --sage:#ea580c; --sage-soft:#fb923c; --gold:#dc2626; --gold-soft:#f87171;
+    --terracotta:#f59e0b; --ink:#fff1e6; --ink-dim:#c4a880; --ink-faint:#7a5c3a;
+    --good:#4ade80; --bad:#ef4444;
   }
   *{box-sizing:border-box}
   html,body{background:var(--bg);}
@@ -24,19 +24,19 @@
   body::before{
     content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
     background:
-      radial-gradient(ellipse 900px 500px at 12% -5%, rgba(99,102,241,0.12), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(167,139,250,0.08), transparent 60%);
+      radial-gradient(ellipse 900px 500px at 12% -5%, rgba(234,88,12,0.13), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(220,38,38,0.08), transparent 60%);
   }
   .card{ background:var(--surface); border:1px solid var(--line); border-radius:22px; transition:transform .35s cubic-bezier(.4,0,.2,1), border-color .35s; }
-  .card:hover{ transform:translateY(-3px); border-color:#5254a0; }
+  .card:hover{ transform:translateY(-3px); border-color:#8b3c10; }
   .btn{ border-radius:14px; font-weight:600; transition:filter .2s, transform .15s; }
   .btn:active{ transform:scale(.97); }
-  .btn-primary{ background:linear-gradient(135deg,var(--sage),#4f52d4); color:#eeeeff; }
+  .btn-primary{ background:linear-gradient(135deg,var(--sage),#c2410c); color:#fff1e6; }
   .btn-primary:hover{ filter:brightness(1.12); }
-  .btn-gold{ background:linear-gradient(135deg,var(--gold),var(--terracotta)); color:#1a0a2e; }
+  .btn-gold{ background:linear-gradient(135deg,var(--gold),#991b1b); color:#fff1e6; }
   .btn-gold:hover{ filter:brightness(1.12); }
   .btn-ghost{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line); }
-  .btn-ghost:hover{ background:#2e2e48; }
+  .btn-ghost:hover{ background:#3a2000; }
   .chip{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; font-weight:600; }
   input,select,textarea{ background:var(--bg-soft); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:.6rem .85rem; width:100%; outline:none; }
   input:focus,select:focus,textarea:focus{ border-color:var(--sage); }
@@ -44,7 +44,7 @@
   .scrollbar-thin::-webkit-scrollbar-thumb{background:var(--line); border-radius:99px;}
   .vine{ position:absolute; left:0; right:0; top:38px; height:2px; z-index:0; }
   .ring{ transform:rotate(-90deg); transform-origin:50% 50%; }
-  .modal-backdrop{ background:rgba(8,8,18,.78); backdrop-filter:blur(4px); }
+  .modal-backdrop{ background:rgba(10,5,0,.82); backdrop-filter:blur(4px); }
   .toast{ animation: slidein .35s ease-out, fadeout .35s ease-in 4.2s forwards; }
   @keyframes slidein{ from{ transform:translateX(110%); opacity:0 } to{ transform:translateX(0); opacity:1 } }
   @keyframes fadeout{ to{ opacity:0; transform:translateX(40px) } }
