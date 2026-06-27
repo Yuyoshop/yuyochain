@@ -4,39 +4,56 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YuyoChain • Familia Unida</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ea580c'/%3E%3Cstop offset='1' stop-color='%23dc2626'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23110a00'/%3E%3Crect x='5' y='16' width='38' height='23' rx='11.5' fill='none' stroke='url(%23g)' stroke-width='2.5' opacity='0.65'/%3E%3Cpath d='M24 39 C24 30 24 21 24 13' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z' fill='url(%23g)'/%3E%3Cpath d='M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z' fill='url(%23g)' opacity='0.85'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2310b981'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%2315171a'/%3E%3Crect x='5' y='16' width='38' height='23' rx='11.5' fill='none' stroke='url(%23g)' stroke-width='2.5' opacity='0.65'/%3E%3Cpath d='M24 39 C24 30 24 21 24 13' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Cpath d='M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z' fill='url(%23g)'/%3E%3Cpath d='M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z' fill='url(%23g)' opacity='0.85'/%3E%3C/svg%3E">
+<script>try{if(localStorage.getItem('yc_tema')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#110a00; --bg-soft:#1a1200; --surface:#221600; --surface-2:#2e1e00;
-    --line:#4a3010; --sage:#ea580c; --sage-soft:#fb923c; --gold:#dc2626; --gold-soft:#f87171;
-    --terracotta:#f59e0b; --ink:#fff1e6; --ink-dim:#c4a880; --ink-faint:#7a5c3a;
-    --good:#4ade80; --bad:#ef4444;
+    --bg:#15171a; --bg-soft:#1b1e22; --surface:#1f2329; --surface-2:#272c33;
+    --line:#363c44; --line-strong:#4a525c;
+    --sage:#10b981; --sage-soft:#34d399; --gold:#f59e0b; --gold-soft:#fbbf24;
+    --terracotta:#fb7185; --ink:#eef2f0; --ink-dim:#a8b3ad; --ink-faint:#6b766f;
+    --good:#34d399; --bad:#f87171;
+    --glass-bg:rgba(255,255,255,.05); --glass-border:rgba(255,255,255,.08);
+    --ghost-hover:#2f353d; --backdrop:rgba(8,10,9,.82);
+    --grad-a:rgba(16,185,129,0.12); --grad-b:rgba(245,158,11,0.06);
+    --icon-active:rgba(255,255,255,.07);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6f5; --bg-soft:#ffffff; --surface:#ffffff; --surface-2:#eef1ef;
+    --line:#dde3df; --line-strong:#c4ccc7;
+    --sage:#0f9d6e; --sage-soft:#0a7d57; --gold:#d97706; --gold-soft:#b45309;
+    --terracotta:#e11d48; --ink:#1a1f1c; --ink-dim:#52605a; --ink-faint:#8a948e;
+    --good:#059669; --bad:#dc2626;
+    --glass-bg:rgba(15,157,110,.05); --glass-border:rgba(0,0,0,.08);
+    --ghost-hover:#e4e9e6; --backdrop:rgba(20,30,25,.45);
+    --grad-a:rgba(15,157,110,0.10); --grad-b:rgba(217,119,6,0.05);
+    --icon-active:rgba(0,0,0,.06);
   }
   *{box-sizing:border-box}
   html,body{background:var(--bg);}
-  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink); -webkit-font-smoothing:antialiased;}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink); -webkit-font-smoothing:antialiased; transition:background .3s;}
   .serif{font-family:'Fraunces',serif;}
   .mono{font-family:'JetBrains Mono',monospace;}
   body::before{
     content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
     background:
-      radial-gradient(ellipse 900px 500px at 12% -5%, rgba(234,88,12,0.13), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(220,38,38,0.08), transparent 60%);
+      radial-gradient(ellipse 900px 500px at 12% -5%, var(--grad-a), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, var(--grad-b), transparent 60%);
   }
   .card{ background:var(--surface); border:1px solid var(--line); border-radius:22px; transition:transform .35s cubic-bezier(.4,0,.2,1), border-color .35s; }
-  .card:hover{ transform:translateY(-3px); border-color:#8b3c10; }
+  .card:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
   .btn{ border-radius:14px; font-weight:600; transition:filter .2s, transform .15s; }
   .btn:active{ transform:scale(.97); }
-  .btn-primary{ background:linear-gradient(135deg,var(--sage),#c2410c); color:#fff1e6; }
-  .btn-primary:hover{ filter:brightness(1.12); }
-  .btn-gold{ background:linear-gradient(135deg,var(--gold),#991b1b); color:#fff1e6; }
-  .btn-gold:hover{ filter:brightness(1.12); }
+  .btn-primary{ background:linear-gradient(135deg,var(--sage),#0d8a5f); color:#ffffff; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-gold{ background:linear-gradient(135deg,var(--gold),#c2410c); color:#ffffff; }
+  .btn-gold:hover{ filter:brightness(1.08); }
   .btn-ghost{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line); }
-  .btn-ghost:hover{ background:#3a2000; }
+  .btn-ghost:hover{ background:var(--ghost-hover); }
   .chip{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; font-weight:600; }
   input,select,textarea{ background:var(--bg-soft); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:.6rem .85rem; width:100%; outline:none; }
   input:focus,select:focus,textarea:focus{ border-color:var(--sage); }
@@ -44,14 +61,14 @@
   .scrollbar-thin::-webkit-scrollbar-thumb{background:var(--line); border-radius:99px;}
   .vine{ position:absolute; left:0; right:0; top:38px; height:2px; z-index:0; }
   .ring{ transform:rotate(-90deg); transform-origin:50% 50%; }
-  .modal-backdrop{ background:rgba(10,5,0,.82); backdrop-filter:blur(4px); }
+  .modal-backdrop{ background:var(--backdrop); backdrop-filter:blur(4px); }
   .toast{ animation: slidein .35s ease-out, fadeout .35s ease-in 4.2s forwards; }
   @keyframes slidein{ from{ transform:translateX(110%); opacity:0 } to{ transform:translateX(0); opacity:1 } }
   @keyframes fadeout{ to{ opacity:0; transform:translateX(40px) } }
   @keyframes growUp{ from{ stroke-dashoffset: var(--circ) } to{ stroke-dashoffset: var(--target) } }
   .grow-ring{ animation: growUp 1s ease-out forwards; }
   .icon-btn{ padding:.45rem; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; }
-  .icon-btn:active{ background:rgba(255,255,255,.07); }
+  .icon-btn:active{ background:var(--icon-active); }
 
   /* Paneles */
   .panel{ display:none; }
@@ -62,16 +79,17 @@
   .glass-btn{
     position:relative; border-radius:22px; padding:1.1rem .6rem; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:.5rem; text-align:center; cursor:pointer;
-    border:1px solid rgba(255,255,255,.08);
-    background:linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.015));
-    backdrop-filter:blur(8px); transition:transform .25s ease, box-shadow .25s ease;
+    border:1px solid var(--glass-border);
+    background:var(--glass-bg);
+    backdrop-filter:blur(8px); transition:transform .25s ease, box-shadow .25s ease, background .2s;
   }
+  .glass-btn:hover{ background:var(--surface-2); }
   .glass-btn:hover{ transform:translateY(-3px); box-shadow:0 12px 24px -14px var(--glow); }
   .glass-btn:active{ transform:translateY(-1px) scale(.98); }
   .glass-btn i{
     font-family:"Font Awesome 6 Free" !important; font-weight:900 !important; font-style:normal !important;
     font-size:1.5rem; line-height:1; display:block;
-    color:var(--glow); opacity:.75; text-shadow:none;
+    color:var(--glow); opacity:.9; text-shadow:none;
   }
   .glass-btn .glass-label{ font-weight:600; font-size:.76rem; color:var(--ink); }
   .glass-btn.principal{ padding:1.6rem .75rem; }
@@ -82,9 +100,9 @@
   .paso-stepper{ display:flex; flex-direction:column; align-items:center; gap:.3rem; }
   .paso-circulo{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; border:2px solid var(--line); color:var(--ink-faint); background:var(--surface); transition:.3s; }
   .paso-texto{ font-size:.65rem; color:var(--ink-faint); }
-  .paso-activo .paso-circulo{ border-color:var(--gold); color:var(--gold); box-shadow:0 0 12px rgba(217,160,86,.5); }
-  .paso-activo .paso-texto{ color:var(--gold-soft); font-weight:600; }
-  .paso-hecho .paso-circulo{ border-color:var(--good); color:var(--good); background:rgba(143,191,127,.12); }
+  .paso-activo .paso-circulo{ border-color:var(--sage); color:var(--sage); box-shadow:0 0 12px rgba(16,185,129,.4); }
+  .paso-activo .paso-texto{ color:var(--sage-soft); font-weight:600; }
+  .paso-hecho .paso-circulo{ border-color:var(--good); color:var(--good); background:rgba(52,211,153,.14); }
   .paso-linea{ width:28px; height:2px; background:var(--line); margin-top:17px; }
 
   @media (prefers-reduced-motion: reduce){ .card,.btn,.toast,.grow-ring,.panel{ animation:none !important; transition:none !important; } }
@@ -141,6 +159,7 @@
     </span>
     <div class="flex items-center gap-2">
       <button id="btnInicio" onclick="irInicio()" class="btn btn-ghost px-4 py-2 flex items-center gap-2 hidden"><i class="fas fa-house"></i> Inicio</button>
+      <button onclick="toggleTema()" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema"><i id="iconoTema" class="fas fa-sun text-[var(--gold-soft)]"></i></button>
       <button onclick="abrirConfigApp()" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Configurar candado de acceso"><i class="fas fa-shield-halved text-[var(--ink-faint)]"></i></button>
     </div>
   </header>
@@ -174,14 +193,14 @@
     <!-- Ver secciones -->
     <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Ver secciones</p>
     <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-5xl mx-auto">
-      <button class="glass-btn" style="--glow:#fbbf24" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
-      <button class="glass-btn" style="--glow:#fb923c" onclick="verListaEventos()"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
-      <button class="glass-btn" style="--glow:#f97316" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar"></i><span class="glass-label">Calendario</span></button>
-      <button class="glass-btn" style="--glow:#f87171" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
-      <button class="glass-btn" style="--glow:#facc15" onclick="mostrarPanel('familia')"><i class="fas fa-people-roof"></i><span class="glass-label">Familia</span></button>
-      <button class="glass-btn" style="--glow:#ef4444" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
-      <button class="glass-btn" style="--glow:#fdba74" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
-      <button class="glass-btn" style="--glow:#eab308" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="verListaEventos()"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('calendario')"><i class="fas fa-calendar"></i><span class="glass-label">Calendario</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('gastohogar')"><i class="fas fa-house-chimney"></i><span class="glass-label">Hogar</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('familia')"><i class="fas fa-people-roof"></i><span class="glass-label">Familia</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
+      <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
     </div>
   </div>
 
@@ -1782,6 +1801,19 @@ function mostrarPanel(nombre, fromHistory){
   if(nombre==='resumenanual'){ renderResumenAnual(); }
 }
 function irInicio(){ mostrarPanel('inicio'); }
+function toggleTema(){
+  const esLight = document.documentElement.getAttribute('data-theme')==='light';
+  const nuevo = esLight ? 'dark' : 'light';
+  if(nuevo==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  try{ localStorage.setItem('yc_tema', nuevo); }catch(e){}
+  actualizarIconoTema();
+}
+function actualizarIconoTema(){
+  const esLight = document.documentElement.getAttribute('data-theme')==='light';
+  const i = document.getElementById('iconoTema');
+  if(i) i.className = (esLight ? 'fas fa-moon' : 'fas fa-sun') + ' text-[var(--gold-soft)]';
+}
 function verHistorialGastos(){
   mostrarPanel('gasto');
   setTimeout(()=>{ const h = document.getElementById('historialGastos'); if(h) h.scrollIntoView({behavior:'smooth', block:'start'}); }, 350);
@@ -2361,6 +2393,7 @@ function renderResumenAnual(){
   if(!DB.config) DB.config = { pinHogar: null, pinApp: null };
   if(!DB.config.pinApp) DB.config.pinApp = null;
   verificarAppLock();
+  actualizarIconoTema();
   mostrarPanel('inicio');
   verificarRecordatorios();
   if(overlay) overlay.remove();
