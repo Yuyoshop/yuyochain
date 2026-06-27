@@ -1239,7 +1239,7 @@ function renderBalance(){
   const grupos = calcularDeudasPorGasto();
   document.getElementById('deudas').innerHTML = grupos.length ? grupos.map(grp=>`
     <div>
-      <p class="text-xs text-[var(--ink-faint)] mb-1.5 truncate">${grp.descripcion}</p>
+      <p class="text-sm font-semibold text-[var(--ink)] mb-1.5 truncate">${grp.descripcion}</p>
       <div class="space-y-1.5">
         ${grp.transacciones.map(t=>`
           <div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2">
