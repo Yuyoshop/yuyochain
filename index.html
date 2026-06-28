@@ -982,6 +982,7 @@ function eliminarEvento(id){
   if(!confirm(`¿Eliminar "${e.titulo}"?`)) return;
   DB.eventos = DB.eventos.filter(x=>x.id!==id);
   guardar(); renderEventos(); renderCalendario();
+  if(panelActual==='resumenanual') renderResumenAnual();
   toast('Evento eliminado 🗑️');
 }
 
@@ -2507,6 +2508,7 @@ function renderResumenAnual(){
           <p class="text-xs text-[var(--ink-faint)]">${fechaStr}${gastado>0?` · S/${gastado.toLocaleString()}`:''}</p>
         </div>
         <button onclick="verInformeEvento(${e.id})" class="btn btn-ghost px-3 py-2 text-xs flex items-center gap-1.5 flex-shrink-0"><i class="fas fa-file-lines text-[var(--gold-soft)]"></i> Informe</button>
+        <button onclick="eliminarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center flex-shrink-0" title="Eliminar evento"><i class="fas fa-trash text-[var(--ink-faint)] hover:text-[var(--bad)] text-xs"></i></button>
       </div>`;
   }).join('') : `<p class="text-[var(--ink-faint)] text-sm">Aún no hay eventos finalizados. Se cierran solos al pasar su fecha y aquí verás su informe.</p>`;
 
