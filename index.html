@@ -707,12 +707,15 @@ function renderFamilia(){
     }
 
     return `
-    <div class="card p-4 text-center relative overflow-hidden">
-      <label class="relative inline-block cursor-pointer group" title="Cambiar foto">
-        ${m.foto
-          ? `<img src="${m.foto}" class="w-16 h-16 rounded-full object-cover mx-auto mb-2 border-2" style="border-color:${m.color}">`
-          : `<div class="text-4xl mb-2">${m.emoji}</div>`}
-        <span class="absolute -bottom-1 right-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px]"
+    <div class="card p-4 text-center relative overflow-hidden" ${esHoy?`style="border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 14px 34px -12px rgba(245,158,11,.5);"`:''}>
+      ${esHoy?`<span class="absolute top-2 right-2 text-xs">🎉</span>`:''}
+      <label class="relative inline-block cursor-pointer group mb-2" title="Cambiar foto">
+        <span class="w-16 h-16 rounded-full mx-auto flex items-center justify-center text-3xl overflow-hidden" style="background:${m.color}22; box-shadow:0 0 0 2px ${m.color}, 0 6px 14px -6px ${m.color}99;">
+          ${m.foto
+            ? `<img src="${m.foto}" class="w-full h-full rounded-full object-cover">`
+            : `${m.emoji}`}
+        </span>
+        <span class="absolute -bottom-0.5 right-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px]"
               style="background:var(--surface-2); border:1px solid var(--line);"><i class="fas fa-camera"></i></span>
         <input type="file" accept="image/*" class="hidden" onchange="cambiarFotoFamiliar(${m.id}, this.files[0])">
       </label>
@@ -730,7 +733,7 @@ function renderFamilia(){
         : `<button onclick="editarTelefonoFamiliar(${m.id})" class="text-[9px] text-[var(--ink-faint)] hover:text-[var(--sage-soft)] mt-0.5 block w-full">+ agregar WhatsApp</button>`}
       <button onclick="abrirListaRegalos(${m.id})"
         class="mt-2 w-full text-xs py-1.5 rounded-xl flex items-center justify-center gap-1.5"
-        style="background:rgba(217,160,86,.1); border:1px solid rgba(217,160,86,.25); color:var(--gold-soft);">
+        style="background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.25); color:var(--gold-soft);">
         <i class="fas fa-gift"></i>
         ${regalos.length ? `${regalos.length} regalo${regalos.length===1?'':'s'}${reservados?` · ${reservados} reservado${reservados===1?'':'s'}`:''}` : 'Lista de regalos'}
       </button>
@@ -777,13 +780,13 @@ function renderModalRegalos(id){
   const itemsHTML = lista.length ? lista.map(r=>`
     <div class="flex items-center gap-2 py-2 border-b border-[var(--line)] last:border-0">
       ${r.reservadoPor
-        ? `<span class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style="background:rgba(143,191,127,.2)"><i class="fas fa-check text-[8px] text-[var(--good)]"></i></span>`
+        ? `<span class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style="background:rgba(52,211,153,.2)"><i class="fas fa-check text-[8px] text-[var(--good)]"></i></span>`
         : `<span class="w-5 h-5 rounded-full border border-[var(--line)] flex-shrink-0"></span>`}
       <span class="flex-1 text-sm ${r.reservadoPor?'line-through text-[var(--ink-faint)]':''}">${r.texto}</span>
       ${r.reservadoPor
         ? `<span class="text-[10px] text-[var(--good)] flex-shrink-0">reservado ✓</span>
            <button onclick="liberarRegalo(${id},${r.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] text-xs" title="Liberar reserva"><i class="fas fa-rotate-left"></i></button>`
-        : `<button onclick="reservarRegalo(${id},${r.id})" class="btn text-xs px-2 py-1 flex-shrink-0" style="background:rgba(143,191,127,.15);color:var(--good);border:1px solid var(--good)">Reservar</button>`}
+        : `<button onclick="reservarRegalo(${id},${r.id})" class="btn text-xs px-2 py-1 flex-shrink-0" style="background:rgba(52,211,153,.15);color:var(--good);border:1px solid var(--good)">Reservar</button>`}
       <button onclick="eliminarRegalo(${id},${r.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
     </div>`).join('')
   : `<p class="text-sm text-[var(--ink-faint)] py-3">Sin regalos aún. ¡Agrega lo que te gustaría recibir!</p>`;
@@ -920,7 +923,7 @@ function renderEventos(){
     // Badge de tareas
     const tareas = e.tareas || [];
     const hechas = tareas.filter(t=>t.hecha).length;
-    const tareasHTML = tareas.length ? `<span class="chip text-[9px] px-1.5 py-0.5 ml-1" style="background:rgba(157,180,142,.15); border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : '';
+    const tareasHTML = tareas.length ? `<span class="chip text-[9px] px-1.5 py-0.5 ml-1" style="background:rgba(16,185,129,.14); border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : '';
 
     return `
     <div class="card p-5">
@@ -1528,7 +1531,7 @@ function renderGastosFijos(){
           ${participantes.map(pid=>{
             const m = DB.familia.find(f=>f.id===pid); if(!m) return '';
             const montoChip = tieneAportes ? `S/${(+g.aportes[pid]).toFixed(2)}` : '';
-            return `<span class="chip" style="background:rgba(157,180,142,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}${montoChip?' · '+montoChip:''}</span>`;
+            return `<span class="chip" style="background:rgba(16,185,129,.12); border:1px solid var(--line); font-size:.65rem; padding:.15rem .5rem;">${m.emoji} ${m.nombre}${montoChip?' · '+montoChip:''}</span>`;
           }).join('')}
         </div>
       </div>
@@ -1739,8 +1742,8 @@ function renderVotaciones(){
       </div>
       <p class="text-[var(--ink-faint)] text-sm mt-1">${v.descripcion||''}</p>
       <div class="mt-4 grid grid-cols-2 gap-2">
-        <button onclick="votar(${v.id},'si')" class="btn py-2.5" style="background:rgba(143,191,127,.15); color:var(--good); border:1px solid var(--good)">👍 Sí (${si})</button>
-        <button onclick="votar(${v.id},'no')" class="btn py-2.5" style="background:rgba(210,112,95,.15); color:var(--bad); border:1px solid var(--bad)">👎 No (${no})</button>
+        <button onclick="votar(${v.id},'si')" class="btn py-2.5" style="background:rgba(52,211,153,.15); color:var(--good); border:1px solid var(--good)">👍 Sí (${si})</button>
+        <button onclick="votar(${v.id},'no')" class="btn py-2.5" style="background:rgba(251,113,133,.15); color:var(--bad); border:1px solid var(--bad)">👎 No (${no})</button>
       </div>
     </div>`;
   }).join('') : `<p class="text-[var(--ink-faint)] text-sm">No hay propuestas activas.</p>`;
@@ -2175,7 +2178,7 @@ function renderEstadoInicio(){
             return `<div class="mt-1.5 w-full h-1 rounded-full" style="background:var(--line)"><div class="h-1 rounded-full" style="width:${(pct*100).toFixed(0)}%;background:${col}"></div></div>`;
           })() : ''}
         </div>
-        ${tareas.length ? `<span class="chip text-[9px] flex-shrink-0" style="background:rgba(157,180,142,.15);border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : ''}
+        ${tareas.length ? `<span class="chip text-[9px] flex-shrink-0" style="background:rgba(16,185,129,.14);border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : ''}
         <i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs flex-shrink-0"></i>
       </div>`;
   }
@@ -2254,8 +2257,8 @@ function renderEstadoInicio(){
         <div class="flex items-center justify-between gap-3 py-1.5 border-b border-[var(--line)] last:border-0">
           <p class="text-sm flex-1 truncate">${v.titulo}</p>
           <div class="flex items-center gap-1.5 flex-shrink-0 text-xs">
-            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaSi?'rgba(143,191,127,.2)':'rgba(255,255,255,.05)'}; color:${ganaSi?'var(--good)':'var(--ink-faint)'}; border:1px solid ${ganaSi?'var(--good)':'var(--line)'}">👍 ${si}</span>
-            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaNo?'rgba(210,112,95,.2)':'rgba(255,255,255,.05)'}; color:${ganaNo?'var(--bad)':'var(--ink-faint)'}; border:1px solid ${ganaNo?'var(--bad)':'var(--line)'}">👎 ${no}</span>
+            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaSi?'rgba(52,211,153,.2)':'rgba(255,255,255,.05)'}; color:${ganaSi?'var(--good)':'var(--ink-faint)'}; border:1px solid ${ganaSi?'var(--good)':'var(--line)'}">👍 ${si}</span>
+            <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaNo?'rgba(251,113,133,.2)':'rgba(255,255,255,.05)'}; color:${ganaNo?'var(--bad)':'var(--ink-faint)'}; border:1px solid ${ganaNo?'var(--bad)':'var(--line)'}">👎 ${no}</span>
             ${empate?`<span class="text-[var(--gold-soft)] text-[10px]">empate</span>`:''}
           </div>
         </div>`;
