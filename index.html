@@ -12,108 +12,155 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#15171a; --bg-soft:#1b1e22; --surface:#1f2329; --surface-2:#272c33;
-    --line:#363c44; --line-strong:#4a525c;
+    --bg:#13151a; --bg-soft:#1a1d24; --surface:#1e222b; --surface-2:#272c37;
+    --line:#333a46; --line-strong:#4a5363;
     --sage:#10b981; --sage-soft:#34d399; --gold:#f59e0b; --gold-soft:#fbbf24;
-    --terracotta:#fb7185; --ink:#eef2f0; --ink-dim:#a8b3ad; --ink-faint:#6b766f;
+    --terracotta:#fb7185; --ink:#eef2f0; --ink-dim:#a6b1ba; --ink-faint:#6b7682;
     --good:#34d399; --bad:#f87171;
-    --glass-bg:rgba(255,255,255,.05); --glass-border:rgba(255,255,255,.08);
-    --ghost-hover:#2f353d; --backdrop:rgba(8,10,9,.82);
-    --grad-a:rgba(16,185,129,0.12); --grad-b:rgba(245,158,11,0.06);
+    --glass-bg:rgba(255,255,255,.045); --glass-border:rgba(255,255,255,.09);
+    --ghost-hover:#2f3540; --backdrop:rgba(6,8,12,.78);
+    --grad-a:rgba(16,185,129,0.16); --grad-b:rgba(245,158,11,0.08); --grad-c:rgba(56,189,170,0.10);
     --icon-active:rgba(255,255,255,.07);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+    --shadow-md:0 8px 24px -8px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.3);
+    --shadow-lg:0 24px 56px -16px rgba(0,0,0,.66), 0 8px 22px -10px rgba(0,0,0,.45);
+    --shadow-glow:0 12px 34px -10px rgba(16,185,129,.4);
+    --focus-ring:rgba(16,185,129,.22);
+    --card-sheen:linear-gradient(160deg, rgba(255,255,255,.05), transparent 42%);
   }
   :root[data-theme="light"]{
-    --bg:#f4f6f5; --bg-soft:#ffffff; --surface:#ffffff; --surface-2:#eef1ef;
-    --line:#dde3df; --line-strong:#c4ccc7;
+    --bg:#f3f6f4; --bg-soft:#ffffff; --surface:#ffffff; --surface-2:#eef2ef;
+    --line:#dee4e0; --line-strong:#c2cbc5;
     --sage:#0f9d6e; --sage-soft:#0a7d57; --gold:#d97706; --gold-soft:#b45309;
-    --terracotta:#e11d48; --ink:#1a1f1c; --ink-dim:#52605a; --ink-faint:#8a948e;
+    --terracotta:#e11d48; --ink:#161b18; --ink-dim:#4e5a54; --ink-faint:#869089;
     --good:#059669; --bad:#dc2626;
-    --glass-bg:rgba(15,157,110,.05); --glass-border:rgba(0,0,0,.08);
-    --ghost-hover:#e4e9e6; --backdrop:rgba(20,30,25,.45);
-    --grad-a:rgba(15,157,110,0.10); --grad-b:rgba(217,119,6,0.05);
+    --glass-bg:rgba(255,255,255,.6); --glass-border:rgba(15,40,30,.08);
+    --ghost-hover:#e4e9e6; --backdrop:rgba(20,30,25,.42);
+    --grad-a:rgba(15,157,110,0.12); --grad-b:rgba(217,119,6,0.06); --grad-c:rgba(45,170,150,0.08);
     --icon-active:rgba(0,0,0,.06);
+    --shadow-sm:0 1px 2px rgba(20,40,30,.06);
+    --shadow-md:0 10px 28px -10px rgba(20,45,32,.14), 0 2px 6px rgba(20,45,32,.06);
+    --shadow-lg:0 26px 56px -18px rgba(20,45,32,.2), 0 8px 22px -12px rgba(20,45,32,.1);
+    --shadow-glow:0 14px 34px -12px rgba(15,157,110,.3);
+    --focus-ring:rgba(15,157,110,.18);
+    --card-sheen:linear-gradient(160deg, rgba(255,255,255,.7), transparent 46%);
   }
   *{box-sizing:border-box}
   html,body{background:var(--bg);}
   body{font-family:'Inter',system-ui,sans-serif;color:var(--ink); -webkit-font-smoothing:antialiased; transition:background .3s;}
-  .serif{font-family:'Fraunces',serif;}
+  .serif{font-family:'Fraunces',serif; letter-spacing:-.01em;}
   .mono{font-family:'JetBrains Mono',monospace;}
   body::before{
     content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
     background:
-      radial-gradient(ellipse 900px 500px at 12% -5%, var(--grad-a), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 10%, var(--grad-b), transparent 60%);
+      radial-gradient(ellipse 900px 540px at 10% -8%, var(--grad-a), transparent 58%),
+      radial-gradient(ellipse 760px 520px at 100% 8%, var(--grad-b), transparent 60%),
+      radial-gradient(ellipse 700px 600px at 50% 120%, var(--grad-c), transparent 60%);
   }
-  .card{ background:var(--surface); border:1px solid var(--line); border-radius:22px; transition:transform .35s cubic-bezier(.4,0,.2,1), border-color .35s; }
-  .card:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
-  .btn{ border-radius:14px; font-weight:600; transition:filter .2s, transform .15s; }
+  .card{ position:relative; background:var(--card-sheen), var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow-md); transition:transform .35s cubic-bezier(.4,0,.2,1), border-color .35s, box-shadow .35s; }
+  .card:hover{ transform:translateY(-4px); border-color:var(--line-strong); box-shadow:var(--shadow-lg); }
+  .btn{ border-radius:13px; font-weight:600; transition:filter .2s, transform .15s, box-shadow .25s; }
   .btn:active{ transform:scale(.97); }
-  .btn-primary{ background:linear-gradient(135deg,var(--sage),#0d8a5f); color:#ffffff; }
-  .btn-primary:hover{ filter:brightness(1.08); }
-  .btn-gold{ background:linear-gradient(135deg,var(--gold),#c2410c); color:#ffffff; }
-  .btn-gold:hover{ filter:brightness(1.08); }
+  .btn-primary{ background:linear-gradient(135deg,var(--sage-soft),var(--sage) 55%,#0c8358); color:#fff; box-shadow:var(--shadow-glow); }
+  .btn-primary:hover{ filter:brightness(1.06); transform:translateY(-1px); }
+  .btn-gold{ background:linear-gradient(135deg,var(--gold-soft),var(--gold) 60%,#d97706); color:#3a2400; box-shadow:0 12px 32px -10px rgba(245,158,11,.42); }
+  .btn-gold:hover{ filter:brightness(1.05); transform:translateY(-1px); }
   .btn-ghost{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line); }
-  .btn-ghost:hover{ background:var(--ghost-hover); }
+  .btn-ghost:hover{ background:var(--ghost-hover); border-color:var(--line-strong); }
   .chip{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; font-weight:600; }
-  input,select,textarea{ background:var(--bg-soft); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:.6rem .85rem; width:100%; outline:none; }
-  input:focus,select:focus,textarea:focus{ border-color:var(--sage); }
+  input,select,textarea{ background:var(--bg-soft); border:1px solid var(--line); color:var(--ink); border-radius:13px; padding:.7rem .9rem; width:100%; outline:none; transition:border-color .2s, box-shadow .2s; }
+  input::placeholder,textarea::placeholder{ color:var(--ink-faint); }
+  input:focus,select:focus,textarea:focus{ border-color:var(--sage); box-shadow:0 0 0 3px var(--focus-ring); }
   .scrollbar-thin::-webkit-scrollbar{width:6px;height:6px;}
   .scrollbar-thin::-webkit-scrollbar-thumb{background:var(--line); border-radius:99px;}
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover{background:var(--line-strong);}
   .vine{ position:absolute; left:0; right:0; top:38px; height:2px; z-index:0; }
   .ring{ transform:rotate(-90deg); transform-origin:50% 50%; }
-  .modal-backdrop{ background:var(--backdrop); backdrop-filter:blur(4px); }
-  .toast{ animation: slidein .35s ease-out, fadeout .35s ease-in 4.2s forwards; }
+  .modal-backdrop{ background:var(--backdrop); backdrop-filter:blur(6px); }
+  .modal-backdrop > .card{ animation: modalPop .3s cubic-bezier(.34,1.4,.5,1) both; }
+  @keyframes modalPop{ from{ opacity:0; transform:translateY(16px) scale(.96) } to{ opacity:1; transform:translateY(0) scale(1) } }
+  .toast{ animation: slidein .35s ease-out, fadeout .35s ease-in 4.2s forwards; box-shadow:var(--shadow-lg); }
   @keyframes slidein{ from{ transform:translateX(110%); opacity:0 } to{ transform:translateX(0); opacity:1 } }
   @keyframes fadeout{ to{ opacity:0; transform:translateX(40px) } }
   @keyframes growUp{ from{ stroke-dashoffset: var(--circ) } to{ stroke-dashoffset: var(--target) } }
   .grow-ring{ animation: growUp 1s ease-out forwards; }
-  .icon-btn{ padding:.45rem; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; }
+  .icon-btn{ padding:.45rem; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; transition:background .15s; }
   .icon-btn:active{ background:var(--icon-active); }
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:translateY(0) } }
+  .fade-up{ animation:fadeUp .5s cubic-bezier(.4,0,.2,1) both; }
+  @keyframes floaty{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-5px) } }
+
+  /* Etiqueta de sección */
+  .eyebrow{ font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); display:flex; align-items:center; justify-content:center; gap:.6rem; }
+  .eyebrow::before,.eyebrow::after{ content:''; height:1px; width:38px; background:linear-gradient(90deg,transparent,var(--line-strong)); }
+  .eyebrow::after{ background:linear-gradient(90deg,var(--line-strong),transparent); }
 
   /* Paneles */
   .panel{ display:none; }
-  .panel.panel-activa{ display:block; animation: panelIn .35s ease; }
-  @keyframes panelIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+  .panel.panel-activa{ display:block; animation: panelIn .4s cubic-bezier(.4,0,.2,1); }
+  @keyframes panelIn{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:translateY(0); } }
 
   /* Botones tipo "vidrio" para la pantalla de inicio */
   .glass-btn{
-    position:relative; border-radius:22px; padding:1.1rem .6rem; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:.5rem; text-align:center; cursor:pointer;
+    position:relative; border-radius:18px; padding:1rem .5rem; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:.55rem; text-align:center; cursor:pointer;
     border:1px solid var(--glass-border);
     background:var(--glass-bg);
-    backdrop-filter:blur(8px); transition:transform .25s ease, box-shadow .25s ease, background .2s;
+    box-shadow:var(--shadow-sm);
+    backdrop-filter:blur(14px) saturate(1.15); -webkit-backdrop-filter:blur(14px) saturate(1.15);
+    transition:transform .28s cubic-bezier(.34,1.2,.6,1), box-shadow .28s, border-color .25s;
+    animation:fadeUp .45s cubic-bezier(.4,0,.2,1) both;
   }
-  .glass-btn:hover{ background:var(--surface-2); }
-  .glass-btn:hover{ transform:translateY(-3px); box-shadow:0 12px 24px -14px var(--glow); }
+  .glass-btn:hover{ transform:translateY(-4px); border-color:var(--line-strong); box-shadow:var(--shadow-md); }
   .glass-btn:active{ transform:translateY(-1px) scale(.98); }
   .glass-btn i{
     font-family:"Font Awesome 6 Free" !important; font-weight:900 !important; font-style:normal !important;
-    font-size:1.5rem; line-height:1; display:block;
-    color:var(--glow); opacity:.9; text-shadow:none;
+    width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; line-height:1; color:var(--glow);
+    background:color-mix(in srgb, var(--glow) 15%, transparent);
+    transition:transform .28s cubic-bezier(.34,1.4,.5,1);
   }
+  .glass-btn:hover i{ transform:scale(1.08); }
   .glass-btn .glass-label{ font-weight:600; font-size:.76rem; color:var(--ink); }
-  .glass-btn.principal{ padding:1.6rem .75rem; }
-  .glass-btn.principal i{ font-size:2rem; }
-  .glass-btn.principal .glass-label{ font-size:.95rem; }
+  .glass-btn.principal{ padding:1.5rem .7rem; gap:.8rem; }
+  .glass-btn.principal i{
+    width:62px; height:62px; border-radius:20px; font-size:1.75rem; color:#fff;
+    background:linear-gradient(145deg, color-mix(in srgb, var(--glow) 92%, #fff), var(--glow) 50%, color-mix(in srgb, var(--glow) 60%, #000));
+    box-shadow:0 12px 28px -8px color-mix(in srgb, var(--glow) 60%, transparent);
+  }
+  .glass-btn.principal .glass-label{ font-size:1rem; font-weight:700; }
+  .glass-btn.principal:nth-child(1){ animation-delay:.05s }
+  .glass-btn.principal:nth-child(2){ animation-delay:.12s }
+  .glass-btn.principal:nth-child(3){ animation-delay:.19s }
 
   /* Indicador de pasos del asistente */
   .paso-stepper{ display:flex; flex-direction:column; align-items:center; gap:.3rem; }
   .paso-circulo{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; border:2px solid var(--line); color:var(--ink-faint); background:var(--surface); transition:.3s; }
   .paso-texto{ font-size:.65rem; color:var(--ink-faint); }
-  .paso-activo .paso-circulo{ border-color:var(--sage); color:var(--sage); box-shadow:0 0 12px rgba(16,185,129,.4); }
+  .paso-activo .paso-circulo{ border-color:var(--sage); color:var(--sage); box-shadow:0 0 14px rgba(16,185,129,.45); transform:scale(1.08); }
   .paso-activo .paso-texto{ color:var(--sage-soft); font-weight:600; }
   .paso-hecho .paso-circulo{ border-color:var(--good); color:var(--good); background:rgba(52,211,153,.14); }
   .paso-linea{ width:28px; height:2px; background:var(--line); margin-top:17px; }
 
-  @media (prefers-reduced-motion: reduce){ .card,.btn,.toast,.grow-ring,.panel{ animation:none !important; transition:none !important; } }
+  @media (prefers-reduced-motion: reduce){ *,.card,.btn,.toast,.grow-ring,.panel,.glass-btn,.fade-up{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body class="min-h-screen">
 
-<div id="cargaInicial" style="position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem;">
-  <i class="fas fa-seedling" style="font-size:2rem; color:var(--sage);"></i>
-  <p style="color:var(--ink-dim); font-family:'Inter',sans-serif; font-size:.9rem;">Cargando YuyoChain…</p>
+<div id="cargaInicial" style="position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.1rem;">
+  <svg viewBox="0 0 48 48" width="60" height="60" xmlns="http://www.w3.org/2000/svg" style="animation:floaty 2.4s ease-in-out infinite;">
+    <defs><linearGradient id="lgCarga" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--sage)"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs>
+    <rect x="5" y="16" width="38" height="23" rx="11.5" fill="none" stroke="url(#lgCarga)" stroke-width="2.5" opacity="0.65"/>
+    <path d="M24 39 C24 30 24 21 24 13" stroke="url(#lgCarga)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M24 25 C18 25 14 20 14 13 C20 13 24 18 24 25 Z" fill="url(#lgCarga)"/>
+    <path d="M24 21 C30 21 34 16 34 9 C28 9 24 14 24 21 Z" fill="url(#lgCarga)" opacity="0.85"/>
+  </svg>
+  <p class="serif" style="color:var(--ink); font-size:1.25rem; font-weight:600;">YuyoChain</p>
+  <div style="width:120px; height:3px; border-radius:99px; overflow:hidden; background:var(--surface-2);">
+    <div style="width:40%; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--sage),var(--gold)); animation:cargaBar 1.1s ease-in-out infinite;"></div>
+  </div>
 </div>
+<style>@keyframes cargaBar{ 0%{transform:translateX(-110%)} 100%{transform:translateX(330%)} }</style>
 
 <!-- Candado de acceso a la app -->
 <div id="appLock" style="display:none; position:fixed; inset:0; z-index:150; background:var(--bg); flex-direction:column; align-items:center; justify-content:center; gap:1.25rem; padding:1.5rem;">
@@ -170,15 +217,18 @@
   <!-- ============ PANEL: INICIO ============ -->
   <div id="panel-inicio" class="panel panel-activa">
 
-    <!-- Saludo breve -->
-    <p class="text-[var(--ink-faint)] text-sm mb-5">Nuestra familia, siempre conectada.</p>
+    <!-- Saludo destacado -->
+    <div class="mb-6 fade-up">
+      <h2 class="serif text-3xl sm:text-4xl font-semibold leading-tight" id="saludoInicio">Hola, familia 👋</h2>
+      <p class="text-[var(--ink-dim)] text-sm mt-1">Nuestra familia, siempre conectada.</p>
+    </div>
 
     <!-- Estado actual (se rellena por JS) -->
-    <div id="estadoInicio" class="mb-6 space-y-3"></div>
+    <div id="estadoInicio" class="mb-8 space-y-3"></div>
 
     <!-- Agregar nuevo -->
-    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Agregar nuevo</p>
-    <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mb-8">
+    <p class="eyebrow mb-4">Agregar nuevo</p>
+    <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-md mx-auto mb-9">
       <button class="glass-btn principal" style="--glow:var(--sage)" onclick="iniciarAsistente('evento')">
         <i class="fas fa-calendar-plus"></i><span class="glass-label">+ Evento</span>
       </button>
@@ -191,7 +241,7 @@
     </div>
 
     <!-- Ver secciones -->
-    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] text-center mb-3">Ver secciones</p>
+    <p class="eyebrow mb-4">Ver secciones</p>
     <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-5xl mx-auto">
       <button class="glass-btn" style="--glow:var(--sage)" onclick="verHistorialGastos()"><i class="fas fa-receipt"></i><span class="glass-label">Gastos</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="verListaEventos()"><i class="fas fa-calendar-days"></i><span class="glass-label">Eventos</span></button>
@@ -207,8 +257,11 @@
   <!-- ============ PANEL: EVENTO (paso 1) ============ -->
   <div id="panel-evento" class="panel">
     <div id="evento-form" class="max-w-md mx-auto">
-      <h2 class="serif text-3xl font-medium mb-1 text-center">Nuevo evento</h2>
-      <p class="text-[var(--ink-faint)] text-center mb-4">Agrega una fecha importante para la familia</p>
+      <div class="flex flex-col items-center text-center mb-5">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white mb-3" style="background:linear-gradient(145deg,var(--sage-soft),var(--sage) 55%,#0c8358); box-shadow:0 12px 28px -8px rgba(16,185,129,.5);"><i class="fas fa-calendar-plus"></i></div>
+        <h2 class="serif text-3xl font-semibold">Nuevo evento</h2>
+        <p class="text-[var(--ink-dim)] text-sm mt-1">Agrega una fecha importante para la familia</p>
+      </div>
       <!-- Plantillas rápidas -->
       <div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
         <button onclick="aplicarPlantilla('')" class="plantilla-btn flex-shrink-0 px-3 py-1.5 rounded-full text-sm border border-[var(--line)] text-[var(--ink-dim)] hover:border-[var(--sage)] hover:text-[var(--sage)]">Personalizado</button>
@@ -249,8 +302,11 @@
   <!-- ============ PANEL: GASTO (paso 2) ============ -->
   <div id="panel-gasto" class="panel">
     <div class="max-w-md mx-auto">
-      <h2 class="serif text-3xl font-medium mb-1 text-center">Registrar gasto</h2>
-      <p class="text-[var(--ink-faint)] text-center mb-6">Se reparte automáticamente entre quienes elijas</p>
+      <div class="flex flex-col items-center text-center mb-5">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white mb-3" style="background:linear-gradient(145deg,var(--gold-soft),var(--gold) 60%,#d97706); box-shadow:0 12px 28px -8px rgba(245,158,11,.5);"><i class="fas fa-coins"></i></div>
+        <h2 class="serif text-3xl font-semibold">Registrar gasto</h2>
+        <p class="text-[var(--ink-dim)] text-sm mt-1">Se reparte automáticamente entre quienes elijas</p>
+      </div>
       <div class="card p-6 space-y-3">
         <input id="g-desc" placeholder="Descripción del gasto">
         <select id="g-evento"><option value="">Sin evento (gasto general)</option></select>
@@ -303,8 +359,11 @@
   <!-- ============ PANEL: MEMORIA (paso 3) ============ -->
   <div id="panel-memoria" class="panel">
     <div class="max-w-md mx-auto">
-      <h2 class="serif text-3xl font-medium mb-1 text-center">Agregar memoria</h2>
-      <p class="text-[var(--ink-faint)] text-center mb-6">Guarda una foto de este momento</p>
+      <div class="flex flex-col items-center text-center mb-5">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white mb-3" style="background:linear-gradient(145deg,#fda4c0,var(--terracotta) 60%,#be1241); box-shadow:0 12px 28px -8px rgba(251,113,133,.5);"><i class="fas fa-images"></i></div>
+        <h2 class="serif text-3xl font-semibold">Agregar memoria</h2>
+        <p class="text-[var(--ink-dim)] text-sm mt-1">Guarda una foto de este momento</p>
+      </div>
       <div class="card p-6 space-y-3">
         <input id="m-titulo" placeholder="¿Qué recuerdas de este momento?">
         <select id="m-evento"><option value="">Sin evento (foto general)</option></select>
@@ -507,18 +566,21 @@ function renderGastosHogarEstado(){
   if(!hogarDesbloqueado){
     acciones.innerHTML = '';
     body.innerHTML = `
-      <div class="text-center py-6">
-        <i class="fas fa-lock text-2xl text-[var(--gold)] mb-3"></i>
-        <p class="text-sm text-[var(--ink-dim)] mb-4">
-          ${tienePinHogar() ? 'Sección protegida. Ingresa la clave para verla.' : 'Esta sección aún no tiene clave. Crea una para protegerla.'}
+      <div class="text-center py-10 px-4">
+        <div class="w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white mx-auto mb-5" style="background:linear-gradient(145deg,var(--gold-soft),var(--gold) 60%,#b45309); box-shadow:0 16px 36px -10px rgba(245,158,11,.55);">
+          <i class="fas fa-lock"></i>
+        </div>
+        <h3 class="serif text-xl font-semibold mb-1">${tienePinHogar() ? 'Sección protegida' : 'Protege esta sección'}</h3>
+        <p class="text-sm text-[var(--ink-dim)] mb-5 max-w-xs mx-auto">
+          ${tienePinHogar() ? 'Ingresa la clave para ver y editar los gastos del hogar.' : 'Crea una clave para que solo la familia con acceso pueda ver los gastos del hogar.'}
         </p>
         ${tienePinHogar() ? `
           <div class="flex gap-2 max-w-xs mx-auto">
             <input id="hogar-pin-input" type="password" placeholder="Clave" class="!text-center" onkeydown="if(event.key==='Enter') desbloquearGastosHogar()">
-            <button onclick="desbloquearGastosHogar()" class="btn btn-primary px-4">Entrar</button>
+            <button onclick="desbloquearGastosHogar()" class="btn btn-primary px-5"><i class="fas fa-unlock-alt"></i></button>
           </div>
         ` : `
-          <button onclick="configurarPinHogar()" class="btn btn-primary px-5 py-2.5"><i class="fas fa-key"></i> Crear clave</button>
+          <button onclick="configurarPinHogar()" class="btn btn-primary px-6 py-3"><i class="fas fa-key"></i> Crear clave</button>
         `}
       </div>`;
     return;
@@ -2038,7 +2100,16 @@ async function guardarMemoria(){
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') closeModal(); });
 
 /* ---------- Estado del inicio ---------- */
+function setSaludoInicio(){
+  const el = document.getElementById('saludoInicio');
+  if(!el) return;
+  const h = new Date().getHours();
+  const saludo = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const emoji = h < 12 ? '🌅' : h < 19 ? '☀️' : '🌙';
+  el.textContent = `${saludo}, familia ${emoji}`;
+}
 function renderEstadoInicio(){
+  setSaludoInicio();
   const div = document.getElementById('estadoInicio');
   if(!div) return;
 
