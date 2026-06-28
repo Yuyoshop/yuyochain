@@ -959,9 +959,22 @@ function renderEventos(){
     </div>`;
   }).join('');
 }
+function cerrarEvento(e){
+  e.completado = true;
+  e.cerradoEn = new Date().toISOString().split('T')[0];
+  e.informe = construirInformeEvento(e);
+}
 function completarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
-  if(e){ e.completado = true; guardar(); renderEventos(); renderCalendario(); toast(`"${e.titulo}" marcado como completado 🌿`); }
+  if(e){ cerrarEvento(e); guardar(); renderEventos(); renderCalendario(); if(panelActual==='resumenanual') renderResumenAnual(); toast(`"${e.titulo}" finalizado · informe generado 📋`); }
+}
+function autoCerrarEventos(){
+  let cerrados = 0;
+  DB.eventos.forEach(e=>{
+    if(!e.completado && diasRestantes(e.fecha) < 0){ cerrarEvento(e); cerrados++; }
+  });
+  if(cerrados){ guardar(); }
+  return cerrados;
 }
 function eliminarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
@@ -1163,10 +1176,8 @@ function eliminarTarea(eventoId, tareaId){
   guardar(); renderDetalleEvento(eventoId); renderEventos();
   toast('Tarea eliminada 🗑️');
 }
-function generarInformeEvento(id){
-  const e = DB.eventos.find(x=>x.id===id);
-  if(!e) return;
-
+function construirInformeEvento(e){
+  if(!e) return '';
   const dias = diasRestantes(e.fecha);
   const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
 
@@ -1264,6 +1275,12 @@ function generarInformeEvento(id){
   msg += `\n━━━━━━━━━━━━━━━━━\n`;
   msg += `🌿 _YuyoChain • Familia Unida_`;
 
+  return msg;
+}
+function generarInformeEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const msg = e.informe || construirInformeEvento(e);
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -2476,12 +2493,33 @@ function renderResumenAnual(){
   // Eventos completados
   const evCompletados = DB.eventos.filter(e=>e.completado);
 
+  // Eventos finalizados con informe (más reciente primero)
+  const evFinalizados = DB.eventos.filter(e=>e.completado)
+    .sort((a,b)=> new Date(b.cerradoEn||b.fecha) - new Date(a.cerradoEn||a.fecha));
+  const finalizadosHTML = evFinalizados.length ? evFinalizados.map(e=>{
+    const gastado = DB.gastos.filter(g=>g.eventoId===e.id).reduce((s,g)=>s+g.monto,0);
+    const fechaStr = new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{day:'numeric', month:'short', year:'numeric'});
+    return `
+      <div class="flex items-center gap-3 py-2.5 border-b border-[var(--line)] last:border-0">
+        <span class="text-xl flex-shrink-0">${e.emoji||'🎉'}</span>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">${e.titulo}</p>
+          <p class="text-xs text-[var(--ink-faint)]">${fechaStr}${gastado>0?` · S/${gastado.toLocaleString()}`:''}</p>
+        </div>
+        <button onclick="verInformeEvento(${e.id})" class="btn btn-ghost px-3 py-2 text-xs flex items-center gap-1.5 flex-shrink-0"><i class="fas fa-file-lines text-[var(--gold-soft)]"></i> Informe</button>
+      </div>`;
+  }).join('') : `<p class="text-[var(--ink-faint)] text-sm">Aún no hay eventos finalizados. Se cierran solos al pasar su fecha y aquí verás su informe.</p>`;
+
   document.getElementById('resumenAnualBody').innerHTML = `
     <div class="space-y-6">
       <div class="text-center">
         <p class="text-[var(--ink-faint)] text-sm">Total gastado en ${anio}</p>
         <p class="text-4xl font-bold mono text-[var(--gold-soft)] mt-1">S/${totalAnio.toLocaleString()}</p>
-        <p class="text-xs text-[var(--ink-faint)] mt-1">${gastosAnio.length} gasto${gastosAnio.length===1?'':'s'} · ${evCompletados.length} evento${evCompletados.length===1?'':'s'} completado${evCompletados.length===1?'':'s'}</p>
+        <p class="text-xs text-[var(--ink-faint)] mt-1">${gastosAnio.length} gasto${gastosAnio.length===1?'':'s'} · ${evCompletados.length} evento${evCompletados.length===1?'':'s'} finalizado${evCompletados.length===1?'':'s'}</p>
+      </div>
+      <div class="card p-5">
+        <p class="text-xs font-medium uppercase tracking-wide text-[var(--ink-faint)] mb-3">📋 Eventos finalizados</p>
+        ${finalizadosHTML}
       </div>
       <div class="card p-5">
         <p class="text-xs font-medium uppercase tracking-wide text-[var(--ink-faint)] mb-3">Gastos por mes</p>
@@ -2493,6 +2531,30 @@ function renderResumenAnual(){
       </div>
     </div>`;
 }
+function verInformeEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const texto = e.informe || construirInformeEvento(e);
+  const back = document.getElementById('modalBackdrop');
+  const cont = document.getElementById('modalContenido');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const html = texto
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*(.+?)\*/g,'<b>$1</b>')
+    .replace(/_(.+?)_/g,'<i>$1</i>')
+    .replace(/\n/g,'<br>');
+  cont.innerHTML = `
+    <div class="flex items-center gap-2 mb-3">
+      <div class="sec-badge" style="--glow:var(--gold); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-file-lines"></i></div>
+      <h3 class="serif text-xl font-semibold">Informe del evento</h3>
+    </div>
+    <div class="rounded-xl p-4 text-sm leading-relaxed" style="background:var(--bg-soft); border:1px solid var(--line); max-height:50vh; overflow-y:auto;">${html}</div>
+    <div class="flex gap-2 mt-4">
+      <button onclick="generarInformeEvento(${e.id})" class="btn btn-primary flex-1 py-3 flex items-center justify-center gap-2"><i class="fab fa-whatsapp"></i> Compartir</button>
+      <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
+    </div>`;
+}
 
 /* ---------- Init ---------- */
 (async function iniciar(){
@@ -2502,8 +2564,10 @@ function renderResumenAnual(){
   if(!DB.config.pinApp) DB.config.pinApp = null;
   verificarAppLock();
   actualizarIconoTema();
+  const cerrados = autoCerrarEventos();
   mostrarPanel('inicio');
   verificarRecordatorios();
+  if(cerrados) toast(`${cerrados} evento${cerrados===1?'':'s'} finalizado${cerrados===1?'':'s'} · informe${cerrados===1?'':'s'} en Resumen 📋`);
   if(overlay) overlay.remove();
 })();
 </script>
