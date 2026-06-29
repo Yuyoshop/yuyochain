@@ -1389,22 +1389,25 @@ function construirInformeEvento(e){
     });
   }
 
-  if(tareas.length){
-    msg += `\n📋 *TAREAS* (${tareasHechas}/${tareas.length} completadas)\n`;
-    tareas.forEach(t=>{
+  // Solo se listan las tareas marcadas como completadas (no la plantilla pendiente)
+  const tareasHechasList = tareas.filter(t=>t.hecha);
+  if(tareasHechasList.length){
+    msg += `\n📋 *TAREAS COMPLETADAS* (${tareasHechasList.length}/${tareas.length})\n`;
+    tareasHechasList.forEach(t=>{
       const resp = t.responsableId ? ` — ${nombrePorId(t.responsableId)}` : '';
-      msg += `${t.hecha?'✅':'⬜'} ${t.texto}${resp}\n`;
+      msg += `✅ ${t.texto}${resp}\n`;
     });
   }
 
+  // Solo se listan las compras marcadas como compradas
   const compras = e.compras || [];
-  if(compras.length){
-    const compradas = compras.filter(c=>c.comprado).length;
-    msg += `\n🛒 *COMPRAS* (${compradas}/${compras.length} comprados)\n`;
-    compras.forEach(c=>{
+  const comprasHechas = compras.filter(c=>c.comprado);
+  if(comprasHechas.length){
+    msg += `\n🛒 *COMPRAS REALIZADAS* (${comprasHechas.length}/${compras.length})\n`;
+    comprasHechas.forEach(c=>{
       const quien = c.responsableId ? ` — ${nombrePorId(c.responsableId)}` : '';
       const cant = c.cantidad ? ` ×${c.cantidad}` : '';
-      msg += `${c.comprado?'✅':'⬜'} ${c.item}${cant}${quien}\n`;
+      msg += `✅ ${c.item}${cant}${quien}\n`;
     });
   }
 
@@ -1421,7 +1424,7 @@ function construirInformeEvento(e){
 function generarInformeEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
-  const msg = e.informe || construirInformeEvento(e);
+  const msg = construirInformeEvento(e);
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -2491,9 +2494,15 @@ function renderEstadoInicio(){
           <button onclick="event.stopPropagation(); marcarPagado(${e.id})" class="btn text-xs px-2.5 py-1.5 flex-shrink-0 flex items-center gap-1" style="background:rgba(52,211,153,.15); color:var(--good); border:1px solid var(--good);"><i class="fas fa-check"></i> Pagado</button>
         </div>`;
     }).join('');
+    const acento = hayVencido ? 'var(--bad)' : 'var(--gold)';
+    const tinte = hayVencido ? 'rgba(248,113,113,.08)' : 'rgba(245,158,11,.08)';
     pagosHTML = `
-      <div class="card p-4" style="${hayVencido?'border-color:var(--bad);':''}">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">💳 Pagos pendientes</p>
+      <div class="card p-4" style="border-color:${acento}; background:${tinte}; box-shadow:0 0 0 1px ${acento}, var(--shadow-md);">
+        <div class="flex items-center gap-2 mb-2.5">
+          <div class="sec-badge" style="--glow:${acento}; width:34px; height:34px; border-radius:10px; font-size:.85rem;"><i class="fas fa-credit-card"></i></div>
+          <p class="text-xs font-bold uppercase tracking-widest" style="color:${acento}">${hayVencido?'¡Pagos vencidos!':'Pagos pendientes'}</p>
+          <span class="chip text-[9px] px-1.5 py-0.5 ml-auto" style="background:${tinte}; color:${acento}; border:1px solid ${acento};">${pagosPendientes.length}</span>
+        </div>
         ${filas}
       </div>`;
   }
@@ -2534,7 +2543,7 @@ function renderEstadoInicio(){
       </div>`;
   }
 
-  div.innerHTML = cumpleHTML + eventoHTML + pagosHTML + balanceHTML + votacionesHTML;
+  div.innerHTML = pagosHTML + cumpleHTML + eventoHTML + balanceHTML + votacionesHTML;
 }
 
 /* ---------- Candado de acceso a la app ---------- */
@@ -2778,7 +2787,7 @@ function renderResumenAnual(){
 function verInformeEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
-  const texto = e.informe || construirInformeEvento(e);
+  const texto = construirInformeEvento(e);
   const back = document.getElementById('modalBackdrop');
   const cont = document.getElementById('modalContenido');
   back.style.display = 'flex';
