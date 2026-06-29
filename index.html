@@ -2438,8 +2438,9 @@ function renderEstadoInicio(){
     <div class="card p-4 cursor-pointer" onclick="mostrarPanel('gasto')">
       <div class="flex items-center justify-between mb-3">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Balance familiar</p>
-        <span class="flex items-center gap-3 text-xs text-[var(--ink-faint)]">
+        <span class="flex items-center gap-2 text-xs text-[var(--ink-faint)]">
           <span>Este mes: <span class="mono font-semibold text-[var(--ink)]">S/${totalMes.toLocaleString()}</span></span>
+          <button onclick="event.stopPropagation(); mostrarPanel('resumenanual')" class="icon-btn text-[var(--gold-soft)] hover:text-[var(--gold)]" title="Ver resumen e informes para compartir"><i class="fas fa-file-lines"></i></button>
           <i class="fas fa-chevron-right text-xs"></i>
         </span>
       </div>
