@@ -278,9 +278,18 @@
       </div>
       <div class="card p-6 space-y-3">
         <input id="ev-titulo" placeholder="¿Qué evento es?">
+        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide block">Fecha del evento</label>
         <input id="ev-fecha" type="date">
         <input id="ev-emoji" placeholder="Emoji (opcional)" value="🎉">
         <input id="ev-presupuesto" type="number" min="0" placeholder="Presupuesto estimado (S/) — opcional">
+        <div>
+          <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide block mb-1">💳 Fecha de pago (opcional)</label>
+          <div class="flex gap-2">
+            <input id="ev-fechapago" type="date" class="flex-1">
+            <button type="button" onclick="document.getElementById('ev-fechapago').value=finDeMesISO()" class="btn btn-ghost px-3 text-xs whitespace-nowrap flex-shrink-0">Fin de mes</button>
+          </div>
+          <p class="text-[11px] text-[var(--ink-faint)] mt-1">Para cobrar/pagar el dinero, aunque el evento ya haya pasado.</p>
+        </div>
         <!-- Recordatorios -->
         <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-1">
           <p class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide mb-2">🔔 Recordarme</p>
@@ -600,6 +609,17 @@ async function guardar(){
 
 /* ---------- Utilidades ---------- */
 function nombrePorId(id){ const m=DB.familia.find(f=>f.id===id); return m? m.nombre : '—'; }
+function finDeMesISO(baseISO){
+  const d = baseISO ? new Date(baseISO+'T00:00') : new Date();
+  return new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+}
+function marcarPagado(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  e.pagado = true;
+  guardar(); renderEstadoInicio(); renderEventos();
+  toast(`"${e.titulo}" marcado como pagado ✅`);
+}
 
 /* ---------- Candado de Gastos del hogar ---------- */
 let hogarDesbloqueado = false; // se reinicia cada vez que se carga la página
@@ -953,6 +973,7 @@ function renderEventos(){
         <div class="flex-1 min-w-0">
           <p class="serif text-xl font-semibold leading-snug">${e.emoji||'🎉'} ${e.titulo}${tareasHTML}</p>
           <p class="text-[var(--gold-soft)] text-sm">${new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', month:'long', day:'numeric'})}</p>
+          ${e.fechaPago ? `<p class="text-xs mt-0.5 ${e.pagado?'text-[var(--good)]':'text-[var(--ink-dim)]'}"><i class="fas ${e.pagado?'fa-circle-check':'fa-credit-card'}"></i> ${e.pagado?'Pagado':'Pago: '+new Date(e.fechaPago+'T00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>` : ''}
           ${presupuestoHTML}
         </div>
         <div class="flex flex-col gap-1.5 flex-shrink-0">
@@ -1017,8 +1038,16 @@ function editarEvento(id){
         <input id="ee-titulo" value="${(e.titulo||'').replace(/"/g,'&quot;')}" placeholder="¿Qué evento es?" class="mt-1">
       </div>
       <div>
-        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Fecha</label>
+        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Fecha del evento</label>
         <input id="ee-fecha" type="date" value="${e.fecha}" class="mt-1">
+      </div>
+      <div>
+        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">💳 Fecha de pago (opcional)</label>
+        <div class="flex gap-2 mt-1">
+          <input id="ee-fechapago" type="date" value="${e.fechaPago||''}" class="flex-1">
+          <button type="button" onclick="document.getElementById('ee-fechapago').value=finDeMesISO()" class="btn btn-ghost px-3 text-xs whitespace-nowrap flex-shrink-0">Fin de mes</button>
+        </div>
+        <p class="text-[11px] text-[var(--ink-faint)] mt-1">Cuándo se cobra/paga el dinero, aunque el evento ya haya pasado.</p>
       </div>
       <div class="flex gap-3">
         <div class="flex-shrink-0" style="width:90px">
@@ -1043,8 +1072,10 @@ function guardarEdicionEvento(id){
   const fecha = document.getElementById('ee-fecha').value;
   const emoji = document.getElementById('ee-emoji').value || '🎉';
   const presupuesto = parseFloat(document.getElementById('ee-presupuesto').value) || null;
+  const fechaPago = document.getElementById('ee-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el nombre o la fecha', 'bad'); return; }
-  e.titulo = titulo; e.fecha = fecha; e.emoji = emoji; e.presupuesto = presupuesto;
+  if(fechaPago && fechaPago !== (e.fechaPago||null)) e.pagado = false;
+  e.titulo = titulo; e.fecha = fecha; e.emoji = emoji; e.presupuesto = presupuesto; e.fechaPago = fechaPago;
   guardar(); closeModal();
   renderEventos(); renderCalendario(); renderBalance();
   if(panelActual==='resumenanual') renderResumenAnual();
@@ -2180,9 +2211,10 @@ function guardarEvento(){
   const fecha = document.getElementById('ev-fecha').value;
   const emoji = document.getElementById('ev-emoji').value || '🎉';
   const presupuesto = parseFloat(document.getElementById('ev-presupuesto').value) || null;
+  const fechaPago = document.getElementById('ev-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
   const recordatorios = ['1m','1s','3d','1d'].filter(v=> document.getElementById('rec-'+v)?.checked);
-  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto,
+  DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto, fechaPago, pagado:false,
     tareas: _plantillaTareas.length ? [..._plantillaTareas] : [],
     compras: _plantillaCompras.length ? [..._plantillaCompras] : [],
     recordatorios });
@@ -2390,6 +2422,36 @@ function renderEstadoInicio(){
       </div>`;
   }).join('');
 
+  // --- Pagos pendientes (fecha de pago separada del evento) ---
+  const pagosPendientes = DB.eventos
+    .filter(e=> e.fechaPago && !e.pagado)
+    .sort((a,b)=> new Date(a.fechaPago) - new Date(b.fechaPago));
+  let pagosHTML = '';
+  if(pagosPendientes.length){
+    const hayVencido = pagosPendientes.some(e=>diasRestantes(e.fechaPago)<0);
+    const filas = pagosPendientes.map(e=>{
+      const dias = diasRestantes(e.fechaPago);
+      const venc = dias < 0;
+      const totalDeuda = deudasDeGastos(DB.gastos.filter(g=>g.eventoId===e.id)).reduce((s,d)=>s+d.monto,0);
+      const fechaStr = new Date(e.fechaPago+'T00:00').toLocaleDateString('es-ES',{day:'numeric', month:'long'});
+      const estado = venc ? `vencido hace ${Math.abs(dias)}d` : dias===0 ? 'hoy' : `en ${dias} día${dias===1?'':'s'}`;
+      return `
+        <div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0">
+          <span class="text-lg flex-shrink-0">💳</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm truncate">${e.emoji||'🎉'} ${e.titulo}</p>
+            <p class="text-xs ${venc?'text-[var(--bad)]':'text-[var(--gold-soft)]'}">Pago: ${fechaStr} · ${estado}${totalDeuda>0?` · S/${totalDeuda.toFixed(2)}`:''}</p>
+          </div>
+          <button onclick="event.stopPropagation(); marcarPagado(${e.id})" class="btn text-xs px-2.5 py-1.5 flex-shrink-0 flex items-center gap-1" style="background:rgba(52,211,153,.15); color:var(--good); border:1px solid var(--good);"><i class="fas fa-check"></i> Pagado</button>
+        </div>`;
+    }).join('');
+    pagosHTML = `
+      <div class="card p-4" style="${hayVencido?'border-color:var(--bad);':''}">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">💳 Pagos pendientes</p>
+        ${filas}
+      </div>`;
+  }
+
   // --- Votaciones activas ---
   const votacionesConVotos = DB.votaciones.filter(v=>{
     const votos = Object.values(v.votos||{});
@@ -2426,7 +2488,7 @@ function renderEstadoInicio(){
       </div>`;
   }
 
-  div.innerHTML = cumpleHTML + eventoHTML + balanceHTML + votacionesHTML;
+  div.innerHTML = cumpleHTML + eventoHTML + pagosHTML + balanceHTML + votacionesHTML;
 }
 
 /* ---------- Candado de acceso a la app ---------- */
