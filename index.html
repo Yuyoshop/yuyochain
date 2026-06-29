@@ -2315,19 +2315,29 @@ function renderEstadoInicio(){
       </div>`;
   }
 
-  // --- Balance familiar ---
-  const grupos = calcularDeudasPorGasto();
-  // Consolidar: sumar todas las deudas de A→B en una sola línea
-  const consolidado = {};
-  grupos.forEach(g=>g.transacciones.forEach(t=>{
-    const key = `${t.de}-${t.a}`;
-    consolidado[key] = (consolidado[key]||{de:t.de, a:t.a, monto:0});
-    consolidado[key].monto += t.monto;
-  }));
-  const deudas = Object.values(consolidado);
-  const totalGastado = DB.gastos.reduce((s,g)=>s+g.monto,0);
+  // --- Balance familiar (separado por evento) ---
+  const gruposBal = gruposGastosPorEvento();
   const mesKey = new Date().toISOString().slice(0,7);
   const totalMes = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mesKey)).reduce((s,g)=>s+g.monto,0);
+
+  const bloquesBal = gruposBal.slice(0,3).map((grp,i)=>{
+    const e = grp.evento;
+    const deudasG = deudasDeGastos(grp.gastos);
+    const totalGrupo = grp.gastos.reduce((s,g)=>s+g.monto,0);
+    const nombre = e ? `${e.emoji||'🎉'} ${e.titulo}` : '🧾 Gastos generales';
+    return `
+      <div class="rounded-xl p-2.5 mb-2 last:mb-0" style="background:var(--bg-soft); border:1px solid var(--line);">
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <span class="text-xs font-semibold truncate flex items-center gap-1.5"><span class="chip text-[9px] px-1.5 py-0.5" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">B${i+1}</span> <span class="truncate">${nombre}</span></span>
+          <span class="mono text-[11px] font-semibold text-[var(--gold-soft)] flex-shrink-0">S/${totalGrupo.toLocaleString()}</span>
+        </div>
+        ${deudasG.length ? deudasG.slice(0,3).map(d=>`
+          <div class="flex items-center justify-between text-[13px] py-0.5">
+            <span><span class="font-semibold text-[var(--terracotta)]">${nombrePorId(d.de)}</span> le debe a <span class="font-semibold text-[var(--sage-soft)]">${nombrePorId(d.a)}</span></span>
+            <span class="mono font-semibold">S/${d.monto.toFixed(2)}</span>
+          </div>`).join('') : `<p class="text-xs text-[var(--ink-faint)]"><i class="fas fa-circle-check text-[var(--good)]"></i> Sin deudas pendientes</p>`}
+      </div>`;
+  }).join('');
 
   const balanceHTML = `
     <div class="card p-4 cursor-pointer" onclick="mostrarPanel('gasto')">
@@ -2338,12 +2348,8 @@ function renderEstadoInicio(){
           <i class="fas fa-chevron-right text-xs"></i>
         </span>
       </div>
-      ${deudas.length ? deudas.slice(0,3).map(d=>`
-        <div class="flex items-center justify-between text-sm py-1.5 border-b border-[var(--line)] last:border-0">
-          <span><span class="font-semibold text-[var(--terracotta)]">${nombrePorId(d.de)}</span> le debe a <span class="font-semibold text-[var(--sage-soft)]">${nombrePorId(d.a)}</span></span>
-          <span class="mono font-semibold">S/${d.monto.toFixed(2)}</span>
-        </div>`).join('')
-        + (deudas.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-2">+${deudas.length-3} deuda${deudas.length-3===1?'':'s'} más → Ver gastos</p>` : '')
+      ${gruposBal.length ? bloquesBal
+        + (gruposBal.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-1">+${gruposBal.length-3} balance${gruposBal.length-3===1?'':'s'} más → Ver gastos</p>` : '')
       : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo parejo, nadie debe nada</p>`}
     </div>`;
 
