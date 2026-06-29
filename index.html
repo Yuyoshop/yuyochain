@@ -959,6 +959,9 @@ function renderEventos(){
           <button onclick="abrirDetalleEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Ver tareas y compartir">
             <i class="fas fa-list-check text-[var(--gold-soft)]"></i>
           </button>
+          <button onclick="editarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Editar evento">
+            <i class="fas fa-pen text-[var(--ink-dim)]"></i>
+          </button>
           <button onclick="completarEvento(${e.id})" class="btn-ghost btn w-9 h-9 flex items-center justify-center" title="Marcar como completado">
             <i class="fas fa-check text-[var(--sage)]"></i>
           </button>
@@ -992,9 +995,60 @@ function eliminarEvento(id){
   if(!e) return;
   if(!confirm(`¿Eliminar "${e.titulo}"?`)) return;
   DB.eventos = DB.eventos.filter(x=>x.id!==id);
-  guardar(); renderEventos(); renderCalendario();
+  guardar(); renderEventos(); renderCalendario(); renderBalance();
   if(panelActual==='resumenanual') renderResumenAnual();
   toast('Evento eliminado 🗑️');
+}
+function editarEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-pen"></i></div>
+      <h3 class="serif text-xl font-semibold">Editar evento</h3>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Nombre del evento</label>
+        <input id="ee-titulo" value="${(e.titulo||'').replace(/"/g,'&quot;')}" placeholder="¿Qué evento es?" class="mt-1">
+      </div>
+      <div>
+        <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Fecha</label>
+        <input id="ee-fecha" type="date" value="${e.fecha}" class="mt-1">
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-shrink-0" style="width:90px">
+          <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Emoji</label>
+          <input id="ee-emoji" value="${e.emoji||'🎉'}" class="mt-1 text-center">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-[var(--ink-faint)] font-medium uppercase tracking-wide">Presupuesto (S/)</label>
+          <input id="ee-presupuesto" type="number" min="0" value="${e.presupuesto||''}" placeholder="Opcional" class="mt-1">
+        </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="guardarEdicionEvento(${e.id})" class="btn btn-primary flex-1 py-3">Guardar cambios</button>
+        <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cancelar</button>
+      </div>
+    </div>`;
+}
+function guardarEdicionEvento(id){
+  const e = DB.eventos.find(x=>x.id===id);
+  if(!e) return;
+  const titulo = document.getElementById('ee-titulo').value.trim();
+  const fecha = document.getElementById('ee-fecha').value;
+  const emoji = document.getElementById('ee-emoji').value || '🎉';
+  const presupuesto = parseFloat(document.getElementById('ee-presupuesto').value) || null;
+  if(!titulo || !fecha){ toast('Falta el nombre o la fecha', 'bad'); return; }
+  e.titulo = titulo; e.fecha = fecha; e.emoji = emoji; e.presupuesto = presupuesto;
+  guardar(); closeModal();
+  renderEventos(); renderCalendario(); renderBalance();
+  if(panelActual==='resumenanual') renderResumenAnual();
+  toast('Evento actualizado ✏️');
 }
 
 /* ---------- Detalle de evento: tareas + presupuesto + WhatsApp ---------- */
@@ -1040,16 +1094,19 @@ function renderDetalleEvento(id){
     </div>`).join('');
 
   c.innerHTML = `
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="serif text-2xl font-medium">${e.emoji||'🎉'} ${e.titulo}</h3>
-      <div class="flex gap-2">
-        <button onclick="compartirEventoWhatsApp(${e.id})" class="btn btn-primary px-3 py-2 text-sm flex items-center gap-1.5" title="Compartir por WhatsApp">
-          <i class="fab fa-whatsapp"></i> Compartir
-        </button>
-        <button onclick="generarInformeEvento(${e.id})" class="btn btn-gold px-3 py-2 text-sm flex items-center gap-1.5" title="Generar informe completo">
-          <i class="fas fa-file-lines"></i> Informe
-        </button>
-      </div>
+    <div class="flex items-start justify-between gap-2 mb-3">
+      <h3 class="serif text-2xl font-medium flex items-center gap-2 min-w-0">
+        <span class="truncate">${e.emoji||'🎉'} ${e.titulo}</span>
+        <button onclick="editarEvento(${e.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar nombre, fecha y presupuesto"><i class="fas fa-pen text-sm"></i></button>
+      </h3>
+    </div>
+    <div class="flex gap-2 mb-3">
+      <button onclick="compartirEventoWhatsApp(${e.id})" class="btn btn-primary px-3 py-2 text-sm flex items-center gap-1.5 flex-1 justify-center" title="Compartir por WhatsApp">
+        <i class="fab fa-whatsapp"></i> Compartir
+      </button>
+      <button onclick="generarInformeEvento(${e.id})" class="btn btn-gold px-3 py-2 text-sm flex items-center gap-1.5 flex-1 justify-center" title="Generar informe completo">
+        <i class="fas fa-file-lines"></i> Informe
+      </button>
     </div>
     <p class="text-[var(--gold-soft)] text-sm mb-4">${fechaStr} · ${dias >= 0 ? `${dias} días` : 'ya pasó'}</p>
     ${presupuestoHTML}
@@ -1369,23 +1426,69 @@ function calcularDeudasPorGasto(){
     return { id: g.id, descripcion: g.descripcion, transacciones };
   }).filter(grupo => grupo.transacciones.length > 0);
 }
+function deudasDeGastos(gastos){
+  const mapa = {};
+  gastos.forEach(g=>{
+    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+    let trans;
+    if(tieneAportes){
+      trans = Object.entries(g.aportes).filter(([pid])=>+pid!==g.pagadoPor).map(([pid,m])=>({de:+pid, a:g.pagadoPor, monto:+m}));
+    } else {
+      const part = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
+      const parte = g.monto / part.length;
+      trans = part.filter(pid=>pid!==g.pagadoPor).map(pid=>({de:pid, a:g.pagadoPor, monto:parte}));
+    }
+    trans.forEach(t=>{ const k=`${t.de}-${t.a}`; mapa[k]=(mapa[k]||{de:t.de, a:t.a, monto:0}); mapa[k].monto+=t.monto; });
+  });
+  return Object.values(mapa).filter(d=>d.monto>=0.01);
+}
+function gruposGastosPorEvento(){
+  const grupos = [];
+  const usados = new Set();
+  DB.eventos.slice().sort((a,b)=> new Date(a.fecha)-new Date(b.fecha)).forEach(e=>{
+    const gs = DB.gastos.filter(g=>g.eventoId===e.id);
+    if(gs.length){ grupos.push({ evento:e, gastos:gs }); gs.forEach(g=>usados.add(g.id)); }
+  });
+  const generales = DB.gastos.filter(g=>!usados.has(g.id));
+  if(generales.length) grupos.push({ evento:null, gastos:generales });
+  return grupos;
+}
 function renderBalance(){
   const total = DB.gastos.reduce((s,g)=>s+g.monto,0);
   document.getElementById('totalGastado').textContent = 'S/'+total.toLocaleString();
-  const grupos = calcularDeudasPorGasto();
-  document.getElementById('deudas').innerHTML = grupos.length ? grupos.map(grp=>`
-    <div>
-      <p class="text-sm font-semibold text-[var(--ink)] mb-1.5 truncate">${grp.descripcion}</p>
+  const grupos = gruposGastosPorEvento();
+  document.getElementById('deudas').innerHTML = grupos.length ? grupos.map((grp,i)=>{
+    const e = grp.evento;
+    const totalGrupo = grp.gastos.reduce((s,g)=>s+g.monto,0);
+    const deudas = deudasDeGastos(grp.gastos);
+    const fechaStr = e ? new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{day:'numeric', month:'short', year:'numeric'}) : '';
+    const header = e
+      ? `<div class="flex items-center gap-2 min-w-0">
+           <span class="text-base flex-shrink-0">${e.emoji||'🎉'}</span>
+           <div class="min-w-0">
+             <p class="text-sm font-semibold truncate">${e.titulo}</p>
+             <p class="text-[11px] text-[var(--ink-faint)]">${fechaStr}</p>
+           </div>
+           <button onclick="editarEvento(${e.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar evento"><i class="fas fa-pen text-[11px]"></i></button>
+         </div>`
+      : `<div class="flex items-center gap-2"><span class="text-base">🧾</span><p class="text-sm font-semibold">Gastos generales</p></div>`;
+    return `
+    <div class="rounded-2xl p-3.5 mb-2.5" style="background:var(--bg-soft); border:1px solid var(--line);">
+      <div class="flex items-center justify-between gap-2 mb-2.5">
+        <span class="chip" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">Balance ${i+1}</span>
+        <span class="mono text-xs font-semibold text-[var(--gold-soft)]">S/${totalGrupo.toLocaleString()}</span>
+      </div>
+      <div class="mb-2.5">${header}</div>
       <div class="space-y-1.5">
-        ${grp.transacciones.map(t=>`
-          <div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2">
+        ${deudas.length ? deudas.map(t=>`
+          <div class="flex items-center justify-between text-sm bg-[var(--surface)] rounded-xl px-3 py-2" style="border:1px solid var(--line);">
             <span><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
             <span class="mono font-semibold">S/${t.monto.toFixed(2)}</span>
-          </div>
-        `).join('')}
+          </div>`).join('')
+        : `<p class="text-xs text-[var(--ink-faint)]"><i class="fas fa-circle-check text-[var(--good)]"></i> Sin deudas pendientes en este balance</p>`}
       </div>
-    </div>
-  `).join('') : `<p class="text-sm text-[var(--ink-faint)]">Todo está parejo, nadie debe nada 🎉</p>`;
+    </div>`;
+  }).join('') : `<p class="text-sm text-[var(--ink-faint)]">Todo está parejo, nadie debe nada 🎉</p>`;
 
   document.getElementById('historialGastos').innerHTML = DB.gastos.length ? DB.gastos.slice().reverse().map(g=>`
     <div class="flex justify-between items-center text-[var(--ink-dim)] gap-2">
