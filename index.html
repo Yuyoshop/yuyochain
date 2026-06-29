@@ -616,9 +616,10 @@ function finDeMesISO(baseISO){
 function marcarPagado(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
+  guardarSnapshot();
   e.pagado = true;
   guardar(); renderEstadoInicio(); renderEventos();
-  toast(`"${e.titulo}" marcado como pagado ✅`);
+  toastDeshacer(`"${e.titulo}" marcado como pagado ✅`);
 }
 
 /* ---------- Candado de Gastos del hogar ---------- */
@@ -699,6 +700,34 @@ function toast(msg, tipo='ok'){
   el.innerHTML = `<i class="fas ${icono[tipo]}" style="color:${colores[tipo]}"></i><span>${msg}</span>`;
   document.getElementById('toasts').appendChild(el);
   setTimeout(()=>el.remove(), 4600);
+}
+/* ---------- Deshacer (undo) para acciones que ocultan/borran ---------- */
+let _snapshotUndo = null;
+function guardarSnapshot(){ _snapshotUndo = JSON.stringify(DB); }
+function deshacerUltimo(){
+  if(!_snapshotUndo) return;
+  const prev = JSON.parse(_snapshotUndo);
+  Object.keys(DB).forEach(k=>delete DB[k]);
+  Object.assign(DB, prev);
+  _snapshotUndo = null;
+  guardar();
+  renderEventos(); renderCalendario(); renderBalance(); renderFamilia(); renderVotaciones();
+  if(panelActual==='inicio') renderEstadoInicio();
+  if(panelActual==='resumenanual') renderResumenAnual();
+  toast('Cambio deshecho ↩️');
+}
+function toastDeshacer(msg){
+  const el = document.createElement('div');
+  el.className = 'toast card px-4 py-3 flex items-center gap-3 text-sm';
+  el.style.borderLeft = `4px solid var(--gold)`;
+  el.innerHTML = `<i class="fas fa-rotate-left" style="color:var(--gold)"></i><span class="flex-1">${msg}</span>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-ghost px-2.5 py-1 text-xs flex-shrink-0';
+  btn.textContent = 'Deshacer';
+  btn.onclick = ()=>{ deshacerUltimo(); el.remove(); };
+  el.appendChild(btn);
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 7000);
 }
 function diasRestantes(fecha){
   const d = Math.ceil((new Date(fecha) - new Date(new Date().toDateString())) / 86400000);
@@ -1015,10 +1044,12 @@ function eliminarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
   if(!confirm(`¿Eliminar "${e.titulo}"?`)) return;
+  guardarSnapshot();
   DB.eventos = DB.eventos.filter(x=>x.id!==id);
   guardar(); renderEventos(); renderCalendario(); renderBalance();
+  if(panelActual==='inicio') renderEstadoInicio();
   if(panelActual==='resumenanual') renderResumenAnual();
-  toast('Evento eliminado 🗑️');
+  toastDeshacer(`"${e.titulo}" eliminado 🗑️`);
 }
 function editarEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
@@ -1048,6 +1079,7 @@ function editarEvento(id){
           <button type="button" onclick="document.getElementById('ee-fechapago').value=finDeMesISO()" class="btn btn-ghost px-3 text-xs whitespace-nowrap flex-shrink-0">Fin de mes</button>
         </div>
         <p class="text-[11px] text-[var(--ink-faint)] mt-1">Cuándo se cobra/paga el dinero, aunque el evento ya haya pasado.</p>
+        <label class="flex items-center gap-2 text-sm cursor-pointer mt-2"><input type="checkbox" id="ee-pagado" ${e.pagado?'checked':''} style="width:auto; accent-color:var(--good)"> Ya está pagado <span class="text-[11px] text-[var(--ink-faint)]">(desmarca para volver a pendientes)</span></label>
       </div>
       <div class="flex gap-3">
         <div class="flex-shrink-0" style="width:90px">
@@ -1074,8 +1106,8 @@ function guardarEdicionEvento(id){
   const presupuesto = parseFloat(document.getElementById('ee-presupuesto').value) || null;
   const fechaPago = document.getElementById('ee-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el nombre o la fecha', 'bad'); return; }
-  if(fechaPago && fechaPago !== (e.fechaPago||null)) e.pagado = false;
   e.titulo = titulo; e.fecha = fecha; e.emoji = emoji; e.presupuesto = presupuesto; e.fechaPago = fechaPago;
+  e.pagado = document.getElementById('ee-pagado').checked;
   guardar(); closeModal();
   renderEventos(); renderCalendario(); renderBalance();
   if(panelActual==='resumenanual') renderResumenAnual();
