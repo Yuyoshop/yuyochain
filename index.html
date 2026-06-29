@@ -2282,36 +2282,50 @@ function renderEstadoInicio(){
   const div = document.getElementById('estadoInicio');
   if(!div) return;
 
-  // --- Próximo evento ---
-  const proximoEvento = DB.eventos
+  // --- Próximos eventos (varios) ---
+  const proximos = DB.eventos
     .filter(e=>!e.completado && diasRestantes(e.fecha) >= 0)
-    .sort((a,b)=>new Date(a.fecha)-new Date(b.fecha))[0];
+    .sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
 
   let eventoHTML = '';
-  if(proximoEvento){
-    const dias = diasRestantes(proximoEvento.fecha);
-    const urgente = dias <= 3;
-    const tareas = proximoEvento.tareas || [];
-    const hechas = tareas.filter(t=>t.hecha).length;
+  if(proximos.length){
+    const bordeUrgente = diasRestantes(proximos[0].fecha) <= 3;
+    const filas = proximos.slice(0,3).map(ev=>{
+      const dias = diasRestantes(ev.fecha);
+      const urgente = dias <= 3;
+      const tareas = ev.tareas || [];
+      const hechas = tareas.filter(t=>t.hecha).length;
+      const presupHTML = ev.presupuesto ? (() => {
+        const gastado = DB.gastos.filter(g=>g.eventoId===ev.id).reduce((s,g)=>s+g.monto,0);
+        const pct = Math.min(1, gastado/ev.presupuesto);
+        const col = pct>=1?'var(--bad)':pct>0.75?'var(--gold)':'var(--sage)';
+        return `<div class="mt-1.5 w-full h-1 rounded-full" style="background:var(--line)"><div class="h-1 rounded-full" style="width:${(pct*100).toFixed(0)}%;background:${col}"></div></div>`;
+      })() : '';
+      return `
+        <div class="flex items-center gap-4 py-2.5 border-b border-[var(--line)] last:border-0">
+          <div class="text-center flex-shrink-0 w-12">
+            <p class="text-xl font-bold mono ${urgente?'text-[var(--terracotta)]':'text-[var(--sage-soft)]'}">${dias}</p>
+            <p class="text-[9px] text-[var(--ink-faint)] uppercase tracking-wide">días</p>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">${ev.emoji||'🎉'} ${ev.titulo}</p>
+            <p class="text-xs text-[var(--gold-soft)]">${new Date(ev.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'})}</p>
+            ${presupHTML}
+          </div>
+          ${tareas.length ? `<span class="chip text-[9px] flex-shrink-0" style="background:rgba(16,185,129,.14);border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : ''}
+        </div>`;
+    }).join('');
     eventoHTML = `
-      <div class="card p-4 flex items-center gap-4 cursor-pointer" onclick="mostrarPanel('evento')" style="border-color:${urgente?'var(--terracotta)':'var(--line)'}">
-        <div class="text-center flex-shrink-0 w-14">
-          <p class="text-2xl font-bold mono ${urgente?'text-[var(--terracotta)]':'text-[var(--sage-soft)]'}">${dias}</p>
-          <p class="text-[9px] text-[var(--ink-faint)] uppercase tracking-wide">días</p>
+      <div class="card p-4 cursor-pointer" onclick="mostrarPanel('evento')" style="border-color:${bordeUrgente?'var(--terracotta)':'var(--line)'}">
+        <div class="flex items-center justify-between mb-1">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">${proximos.length===1?'Próximo evento':'Próximos eventos'}</p>
+          <span class="flex items-center gap-2 text-xs text-[var(--ink-faint)]">
+            <span class="chip text-[9px] px-1.5 py-0.5" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">${proximos.length}</span>
+            <i class="fas fa-chevron-right text-xs"></i>
+          </span>
         </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-0.5">Próximo evento</p>
-          <p class="font-semibold truncate">${proximoEvento.emoji||'🎉'} ${proximoEvento.titulo}</p>
-          <p class="text-xs text-[var(--gold-soft)]">${new Date(proximoEvento.fecha+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'})}</p>
-          ${proximoEvento.presupuesto ? (() => {
-            const gastado = DB.gastos.filter(g=>g.eventoId===proximoEvento.id).reduce((s,g)=>s+g.monto,0);
-            const pct = Math.min(1, gastado/proximoEvento.presupuesto);
-            const col = pct>=1?'var(--bad)':pct>0.75?'var(--gold)':'var(--sage)';
-            return `<div class="mt-1.5 w-full h-1 rounded-full" style="background:var(--line)"><div class="h-1 rounded-full" style="width:${(pct*100).toFixed(0)}%;background:${col}"></div></div>`;
-          })() : ''}
-        </div>
-        ${tareas.length ? `<span class="chip text-[9px] flex-shrink-0" style="background:rgba(16,185,129,.14);border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : ''}
-        <i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs flex-shrink-0"></i>
+        ${filas}
+        ${proximos.length>3 ? `<p class="text-xs text-[var(--ink-faint)] pt-2">+${proximos.length-3} evento${proximos.length-3===1?'':'s'} más → Ver eventos</p>` : ''}
       </div>`;
   }
 
