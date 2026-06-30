@@ -2133,6 +2133,7 @@ function mostrarPanel(nombre, fromHistory){
   if(el) el.classList.add('panel-activa');
   if(!fromHistory && cambioDePanel){ history.pushState({panel: nombre}, ''); }
   panelActual = nombre;
+  try{ if(nombre!=='resumen') localStorage.setItem('yc_panel', nombre); }catch(e){}
   actualizarStepper(nombre);
   document.getElementById('btnInicio').classList.toggle('hidden', nombre==='inicio');
   window.scrollTo({top:0, behavior:'smooth'});
@@ -2861,7 +2862,12 @@ function verInformeEvento(id){
   verificarAppLock();
   actualizarIconoTema();
   const cerrados = autoCerrarEventos();
-  mostrarPanel('inicio');
+  let panelInicial = 'inicio';
+  try{
+    const guardado = localStorage.getItem('yc_panel');
+    if(guardado && document.getElementById('panel-'+guardado) && guardado!=='resumen'){ panelInicial = guardado; }
+  }catch(e){}
+  mostrarPanel(panelInicial);
   verificarRecordatorios();
   if(cerrados) toast(`${cerrados} evento${cerrados===1?'':'s'} finalizado${cerrados===1?'':'s'} · informe${cerrados===1?'':'s'} en Resumen 📋`);
   if(overlay) overlay.remove();
