@@ -791,8 +791,8 @@ function toastDeshacer(msg){
   setTimeout(()=>el.remove(), 7000);
 }
 function diasRestantes(fecha){
-  const d = Math.ceil((new Date(fecha) - new Date(new Date().toDateString())) / 86400000);
-  return d;
+  const objetivo = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? new Date(fecha+'T00:00') : new Date(fecha);
+  return Math.round((objetivo - new Date(new Date().toDateString())) / 86400000);
 }
 function fechaValida(iso){
   if(!iso) return true;
@@ -803,17 +803,19 @@ function fechaValida(iso){
 }
 
 /* ---------- Render: Familia ---------- */
-function diasHastaCumple(mmdd){
-  if(!mmdd) return null;
-  const [mm, dd] = mmdd.split('-').map(Number);
-  const hoy = new Date();
+function diasHastaCumple(ddmm){
+  if(!ddmm) return null;
+  const [dd, mm] = ddmm.split('-').map(Number);
+  if(!dd || !mm) return null;
+  const hoy = new Date(new Date().toDateString());
   let target = new Date(hoy.getFullYear(), mm-1, dd);
   if(target < hoy) target = new Date(hoy.getFullYear()+1, mm-1, dd);
-  return Math.ceil((target - hoy) / 86400000);
+  return Math.round((target - hoy) / 86400000);
 }
-function formatCumple(mmdd){
-  if(!mmdd) return '';
-  const [mm, dd] = mmdd.split('-').map(Number);
+function formatCumple(ddmm){
+  if(!ddmm) return '';
+  const [dd, mm] = ddmm.split('-').map(Number);
+  if(!dd || !mm) return '';
   return new Date(2000, mm-1, dd).toLocaleDateString('es-ES',{day:'numeric', month:'long'});
 }
 
@@ -876,7 +878,11 @@ function editarCumpleFamiliar(id){
   const val = prompt(`Fecha de cumpleaños de ${m.nombre} (formato DD-MM, ej: 12-07 para el 12 de julio):`, m.cumpleanos||'');
   if(val===null) return;
   const limpio = val.trim();
-  if(limpio && !/^\d{2}-\d{2}$/.test(limpio)){ toast('Formato incorrecto. Usa DD-MM, ej: 12-07', 'bad'); return; }
+  if(limpio){
+    if(!/^\d{2}-\d{2}$/.test(limpio)){ toast('Formato incorrecto. Usa DD-MM, ej: 12-07', 'bad'); return; }
+    const [dd, mm] = limpio.split('-').map(Number);
+    if(dd < 1 || dd > 31 || mm < 1 || mm > 12){ toast('Fecha inválida. Día 01-31 y mes 01-12, ej: 12-07', 'bad'); return; }
+  }
   m.cumpleanos = limpio || null;
   guardar(); renderFamilia();
   toast(limpio ? `Cumpleaños de ${m.nombre}: ${formatCumple(limpio)} 🎂` : 'Cumpleaños eliminado');
@@ -1415,7 +1421,6 @@ function construirInformeEvento(e){
 
   // Tareas
   const tareas = e.tareas || [];
-  const tareasHechas = tareas.filter(t=>t.hecha).length;
 
   // --- Construir mensaje ---
   let msg = `━━━━━━━━━━━━━━━━━\n`;
@@ -1526,7 +1531,8 @@ function itemsCalendarioMes(anio, mes){
   });
   DB.familia.forEach(m=>{
     if(!m.cumpleanos) return;
-    const [mm,dd] = m.cumpleanos.split('-').map(Number);
+    const [dd,mm] = m.cumpleanos.split('-').map(Number);
+    if(!dd || !mm) return;
     if(mm-1===mes){ (cum[dd]=cum[dd]||[]).push(m); }
   });
   return { ev, cum, pag };
@@ -1588,7 +1594,8 @@ function renderAgendaCalendario(){
   });
   DB.familia.forEach(m=>{
     if(!m.cumpleanos) return;
-    const [mm,dd] = m.cumpleanos.split('-').map(Number);
+    const [dd,mm] = m.cumpleanos.split('-').map(Number);
+    if(!dd || !mm) return;
     let f = new Date(hoy0.getFullYear(), mm-1, dd);
     if(f < hoy0) f = new Date(hoy0.getFullYear()+1, mm-1, dd);
     items.push({fecha:f, tipo:'cumple', emoji:'🎂', titulo:`Cumple de ${m.nombre}`, id:null});
@@ -2835,34 +2842,28 @@ function compartirGastosHogarWhatsApp(){
 const REC_DIAS = { '1m':30, '1s':7, '3d':3, '1d':1 };
 function verificarRecordatorios(){
   if(!('Notification' in window)) return;
-  const hoy = new Date().toISOString().split('T')[0];
 
-  // Recopilar notificaciones pendientes según recordatorios personalizados de cada evento
+  // Una sola notificación por evento al cruzar un hito (no se repite cada día)
   const pendientes = [];
   DB.eventos.filter(e=>!e.completado).forEach(e=>{
     const dias = diasRestantes(e.fecha);
     if(dias < 0) return;
     const recs = e.recordatorios && e.recordatorios.length ? e.recordatorios : ['3d','1d'];
-    recs.forEach(r=>{
-      const umbral = REC_DIAS[r];
-      if(umbral === undefined) return;
-      // Disparar si estamos exactamente en ese umbral (o ya pasó pero en el mismo día)
-      if(dias <= umbral){
-        const clave = `yc_notif_${e.id}_${r}_${hoy}`;
-        if(!localStorage.getItem(clave)){
-          const msg = dias === 0 ? '¡Es hoy!' : `Faltan ${dias} día${dias===1?'':'s'}`;
-          pendientes.push({ e, msg, clave });
-        }
-      }
-    });
+    const aplica = recs.filter(r=>REC_DIAS[r]!==undefined && dias <= REC_DIAS[r]);
+    if(!aplica.length) return;
+    const claves = aplica.map(r=>`yc_notif_${e.id}_${r}`);
+    if(claves.some(c=>!localStorage.getItem(c))){
+      const msg = dias === 0 ? '¡Es hoy!' : `Faltan ${dias} día${dias===1?'':'s'}`;
+      pendientes.push({ e, msg, claves });
+    }
   });
 
   if(!pendientes.length) return;
 
   function mostrarNotifs(){
-    pendientes.forEach(({e, msg, clave})=>{
+    pendientes.forEach(({e, msg, claves})=>{
       new Notification(`${e.emoji||'🎉'} ${e.titulo}`, { body: msg, icon: '' });
-      localStorage.setItem(clave, '1');
+      claves.forEach(c=>localStorage.setItem(c, '1'));
     });
   }
 
