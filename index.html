@@ -794,6 +794,13 @@ function diasRestantes(fecha){
   const d = Math.ceil((new Date(fecha) - new Date(new Date().toDateString())) / 86400000);
   return d;
 }
+function fechaValida(iso){
+  if(!iso) return true;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if(!m) return false;
+  const y = +m[1];
+  return y >= 2000 && y <= 2100;
+}
 
 /* ---------- Render: Familia ---------- */
 function diasHastaCumple(mmdd){
@@ -1167,6 +1174,7 @@ function guardarEdicionEvento(id){
   const presupuesto = parseFloat(document.getElementById('ee-presupuesto').value) || null;
   const fechaPago = document.getElementById('ee-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el nombre o la fecha', 'bad'); return; }
+  if(!fechaValida(fecha) || !fechaValida(fechaPago)){ toast('Revisa las fechas: el año debe tener 4 cifras', 'bad'); return; }
   e.titulo = titulo; e.fecha = fecha; e.emoji = emoji; e.presupuesto = presupuesto; e.fechaPago = fechaPago;
   e.pagado = document.getElementById('ee-pagado').checked;
   guardar(); closeModal();
@@ -2432,6 +2440,7 @@ function guardarEvento(){
   const presupuesto = parseFloat(document.getElementById('ev-presupuesto').value) || null;
   const fechaPago = document.getElementById('ev-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
+  if(!fechaValida(fecha) || !fechaValida(fechaPago)){ toast('Revisa las fechas: el año debe tener 4 cifras', 'bad'); return; }
   const recordatorios = ['1m','1s','3d','1d'].filter(v=> document.getElementById('rec-'+v)?.checked);
   DB.eventos.push({ id:Date.now(), titulo, fecha, emoji, completado:false, presupuesto, fechaPago, pagado:false,
     tareas: _plantillaTareas.length ? [..._plantillaTareas] : [],
