@@ -377,6 +377,7 @@
 
         <div id="g-bloque-personalizado" class="space-y-2 hidden">
           <p class="text-xs text-[var(--ink-faint)]">Marca quién debe y escribe cuánto debe cada uno:</p>
+          <p class="text-[11px] text-[var(--gold-soft)] flex items-start gap-1.5"><i class="fas fa-circle-info mt-0.5"></i> Incluye también la parte de quien pagó, para que el total del gasto sea correcto.</p>
           <div id="g-aportes-lista" class="space-y-2"></div>
           <p class="text-sm text-[var(--ink-faint)] mt-2">Total: <span id="g-total-personalizado" class="text-[var(--gold-soft)] font-semibold mono">S/0.00</span></p>
         </div>
@@ -1392,29 +1393,9 @@ function construirInformeEvento(e){
   const gastosEvento = DB.gastos.filter(g=>g.eventoId===e.id);
   const totalGastado = gastosEvento.reduce((s,g)=>s+g.monto, 0);
 
-  // Deudas del evento
-  const deudasEvento = [];
-  gastosEvento.forEach(g=>{
-    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
-    if(tieneAportes){
-      Object.entries(g.aportes).filter(([pid])=>+pid!==g.pagadoPor).forEach(([pid,monto])=>{
-        deudasEvento.push({ de:+pid, a:g.pagadoPor, monto:+monto });
-      });
-    } else {
-      const partic = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
-      const parte = g.monto / partic.length;
-      partic.filter(pid=>pid!==g.pagadoPor).forEach(pid=>{
-        deudasEvento.push({ de:pid, a:g.pagadoPor, monto:parte });
-      });
-    }
-  });
-  // Consolidar deudas
+  // Deudas del evento (reparto exacto al céntimo, consolidado)
   const mapa = {};
-  deudasEvento.forEach(d=>{
-    const k=`${d.de}-${d.a}`;
-    mapa[k] = (mapa[k]||{de:d.de, a:d.a, monto:0});
-    mapa[k].monto += d.monto;
-  });
+  deudasDeGastos(gastosEvento).forEach(d=>{ mapa[`${d.de}-${d.a}`] = d; });
 
   // Fotos del evento
   const fotosEvento = DB.memorias.filter(m=>m.eventoId===e.id);
@@ -1666,38 +1647,38 @@ function crearEventoEnFecha(fechaISO){
 }
 
 /* ---------- Render: Gastos / Deudas ---------- */
+// Reparto en partes iguales con redondeo exacto al céntimo:
+// las partes siempre suman el total; los céntimos sobrantes se reparten 1 a 1.
+function repartoIgual(monto, participantes, pagadoPor){
+  const n = participantes.length;
+  if(!n) return [];
+  const totalCent = Math.round(monto * 100);
+  const base = Math.floor(totalCent / n);
+  const sobra = totalCent - base * n;
+  const trans = [];
+  participantes.forEach((pid, idx) => {
+    const cent = base + (idx < sobra ? 1 : 0);
+    if(pid !== pagadoPor) trans.push({ de: pid, a: pagadoPor, monto: cent / 100 });
+  });
+  return trans;
+}
+function deudasDeGasto(g){
+  const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+  if(tieneAportes){
+    return Object.entries(g.aportes).filter(([pid])=>+pid!==g.pagadoPor).map(([pid,m])=>({de:+pid, a:g.pagadoPor, monto:+m}));
+  }
+  const part = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
+  return repartoIgual(g.monto, part, g.pagadoPor);
+}
 function calcularDeudasPorGasto(){
   // Cada gasto se calcula de forma independiente: no se mezcla ni se compensa con otros gastos.
-  return DB.gastos.map(g=>{
-    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
-    let transacciones;
-    if(tieneAportes){
-      transacciones = Object.entries(g.aportes)
-        .filter(([pid]) => +pid !== g.pagadoPor)
-        .map(([pid, monto]) => ({ de: +pid, a: g.pagadoPor, monto: +monto }));
-    } else {
-      const participantes = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
-      const parte = g.monto / participantes.length;
-      transacciones = participantes
-        .filter(pid => pid !== g.pagadoPor)
-        .map(pid => ({ de: pid, a: g.pagadoPor, monto: parte }));
-    }
-    return { id: g.id, descripcion: g.descripcion, transacciones };
-  }).filter(grupo => grupo.transacciones.length > 0);
+  return DB.gastos.map(g=>({ id: g.id, descripcion: g.descripcion, transacciones: deudasDeGasto(g) }))
+    .filter(grupo => grupo.transacciones.length > 0);
 }
 function deudasDeGastos(gastos){
   const mapa = {};
   gastos.forEach(g=>{
-    const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
-    let trans;
-    if(tieneAportes){
-      trans = Object.entries(g.aportes).filter(([pid])=>+pid!==g.pagadoPor).map(([pid,m])=>({de:+pid, a:g.pagadoPor, monto:+m}));
-    } else {
-      const part = g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id);
-      const parte = g.monto / part.length;
-      trans = part.filter(pid=>pid!==g.pagadoPor).map(pid=>({de:pid, a:g.pagadoPor, monto:parte}));
-    }
-    trans.forEach(t=>{ const k=`${t.de}-${t.a}`; mapa[k]=(mapa[k]||{de:t.de, a:t.a, monto:0}); mapa[k].monto+=t.monto; });
+    deudasDeGasto(g).forEach(t=>{ const k=`${t.de}-${t.a}`; mapa[k]=(mapa[k]||{de:t.de, a:t.a, monto:0}); mapa[k].monto+=t.monto; });
   });
   return Object.values(mapa).filter(d=>d.monto>=0.01);
 }
@@ -1811,6 +1792,7 @@ function editarGasto(id){
 
       <div id="ge-bloque-personalizado" class="space-y-2 ${modoIgual?'hidden':''}">
         <p class="text-xs text-[var(--ink-faint)]">Marca quién debe y escribe cuánto debe cada uno:</p>
+        <p class="text-[11px] text-[var(--gold-soft)] flex items-start gap-1.5"><i class="fas fa-circle-info mt-0.5"></i> Incluye también la parte de quien pagó, para que el total del gasto sea correcto.</p>
         ${DB.familia.map(f=>{
           const valor = (g.aportes && g.aportes[f.id]!=null) ? g.aportes[f.id] : '';
           const marcado = g.aportes && g.aportes[f.id]!=null;
