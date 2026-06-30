@@ -475,24 +475,34 @@
   <!-- ============ PANEL: CALENDARIO ============ -->
   <div id="panel-calendario" class="panel">
     <div class="max-w-xl mx-auto">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="sec-badge" style="--glow:var(--sage)"><i class="fas fa-calendar-days"></i></div>
-        <div>
-          <h2 class="serif text-2xl font-semibold leading-none">Calendario</h2>
-          <p class="text-xs text-[var(--ink-faint)] mt-1">Eventos del mes</p>
+      <div class="flex items-center justify-between gap-3 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="sec-badge" style="--glow:var(--sage)"><i class="fas fa-calendar-days"></i></div>
+          <div>
+            <h2 class="serif text-2xl font-semibold leading-none">Calendario</h2>
+            <p class="text-xs text-[var(--ink-faint)] mt-1" id="calSubtitulo">Eventos del mes</p>
+          </div>
         </div>
+        <button id="calToggleVista" onclick="toggleVistaCalendario()" class="btn btn-ghost px-3 py-2 text-sm flex items-center gap-1.5 flex-shrink-0"><i class="fas fa-list"></i> Lista</button>
       </div>
-      <div class="card p-5">
+      <div class="card p-5" id="calGridWrap">
         <div class="flex items-center justify-between mb-4">
           <button onclick="cambiarMes(-1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-left"></i></button>
           <p id="mesActual" class="font-semibold serif text-lg capitalize"></p>
           <button onclick="cambiarMes(1)" class="btn-ghost btn w-9 h-9 flex items-center justify-center"><i class="fas fa-chevron-right"></i></button>
         </div>
-        <div class="grid grid-cols-7 gap-1 text-center text-xs text-[var(--ink-faint)] mb-2">
-          <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span>
+        <div class="grid grid-cols-7 gap-1 text-center text-xs mb-2">
+          <span class="text-[var(--ink-faint)]">Do</span><span class="text-[var(--ink-faint)]">Lu</span><span class="text-[var(--ink-faint)]">Ma</span><span class="text-[var(--ink-faint)]">Mi</span><span class="text-[var(--ink-faint)]">Ju</span><span class="text-[var(--ink-faint)]">Vi</span><span class="text-[var(--ink-faint)]">Sa</span>
         </div>
         <div id="grillaCalendario" class="grid grid-cols-7 gap-1"></div>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 pt-3 border-t border-[var(--line)] text-[11px] text-[var(--ink-faint)]">
+          <span><span class="inline-block w-2 h-2 rounded-full align-middle mr-1" style="background:var(--sage)"></span>Evento</span>
+          <span>🎂 Cumpleaños</span>
+          <span>💳 Pago</span>
+          <span class="opacity-50">▫ Finalizado</span>
+        </div>
       </div>
+      <div id="calAgenda" class="hidden space-y-2"></div>
     </div>
   </div>
 
@@ -1494,33 +1504,150 @@ function compartirEventoWhatsApp(id){
 
 /* ---------- Render: Calendario ---------- */
 let calMes = new Date().getMonth(), calAnio = new Date().getFullYear();
+let calVista = 'mes';
 function cambiarMes(d){ calMes += d; if(calMes<0){calMes=11; calAnio--;} if(calMes>11){calMes=0; calAnio++;} renderCalendario(); }
-function renderCalendario(){
-  document.getElementById('mesActual').textContent = new Date(calAnio, calMes, 1).toLocaleDateString('es-ES',{month:'long', year:'numeric'});
-  const primerDia = new Date(calAnio, calMes, 1).getDay();
-  const diasMes = new Date(calAnio, calMes+1, 0).getDate();
-  const eventosPorDia = {};
+function itemsCalendarioMes(anio, mes){
+  const ev={}, cum={}, pag={};
   DB.eventos.forEach(e=>{
     const f = new Date(e.fecha+'T00:00');
-    if(f.getMonth()===calMes && f.getFullYear()===calAnio){
-      eventosPorDia[f.getDate()] = eventosPorDia[f.getDate()] || [];
-      eventosPorDia[f.getDate()].push(e);
+    if(f.getMonth()===mes && f.getFullYear()===anio){ (ev[f.getDate()]=ev[f.getDate()]||[]).push(e); }
+    if(e.fechaPago && !e.pagado){
+      const p = new Date(e.fechaPago+'T00:00');
+      if(p.getMonth()===mes && p.getFullYear()===anio){ (pag[p.getDate()]=pag[p.getDate()]||[]).push(e); }
     }
   });
+  DB.familia.forEach(m=>{
+    if(!m.cumpleanos) return;
+    const [mm,dd] = m.cumpleanos.split('-').map(Number);
+    if(mm-1===mes){ (cum[dd]=cum[dd]||[]).push(m); }
+  });
+  return { ev, cum, pag };
+}
+function renderCalendario(){
+  document.getElementById('mesActual').textContent = new Date(calAnio, calMes, 1).toLocaleDateString('es-ES',{month:'long', year:'numeric'});
+  const { ev, cum, pag } = itemsCalendarioMes(calAnio, calMes);
+  const totalEv = Object.values(ev).reduce((s,a)=>s+a.length,0);
+  const totalPag = Object.values(pag).reduce((s,a)=>s+a.length,0);
+  const sub = document.getElementById('calSubtitulo');
+  if(sub) sub.textContent = `${totalEv} evento${totalEv===1?'':'s'}${totalPag?` · ${totalPag} pago${totalPag===1?'':'s'}`:''}`;
+  const primerDia = new Date(calAnio, calMes, 1).getDay();
+  const diasMes = new Date(calAnio, calMes+1, 0).getDate();
   const hoy = new Date();
   let celdas = '';
   for(let i=0;i<primerDia;i++) celdas += `<div></div>`;
   for(let d=1; d<=diasMes; d++){
     const esHoy = hoy.getDate()===d && hoy.getMonth()===calMes && hoy.getFullYear()===calAnio;
-    const evs = eventosPorDia[d];
+    const dow = (primerDia + d - 1) % 7;
+    const finde = dow===0 || dow===6;
+    const evs = ev[d]||[], cums = cum[d]||[], pags = pag[d]||[];
+    const tieneAlgo = evs.length || cums.length || pags.length;
+    let marcadores = '';
+    evs.forEach(e=> marcadores += `<span class="text-[10px] ${e.completado?'opacity-40':''}">${e.emoji||'🎉'}</span>`);
+    cums.forEach(()=> marcadores += `<span class="text-[10px]">🎂</span>`);
+    pags.forEach(()=> marcadores += `<span class="text-[10px]">💳</span>`);
+    const bgFinde = finde && !esHoy ? 'background:var(--bg-soft);' : '';
     celdas += `
-      <div class="aspect-square rounded-lg flex flex-col items-center justify-center text-xs relative
-        ${esHoy?'bg-[var(--sage)] text-[#16210f] font-bold':'text-[var(--ink-dim)]'}">
+      <div onclick="verDiaCalendario(${d})" class="aspect-square rounded-lg flex flex-col items-center justify-center text-xs relative cursor-pointer transition
+        ${esHoy?'font-bold':'text-[var(--ink-dim)] hover:bg-[var(--surface-2)]'}"
+        style="${esHoy?'background:var(--sage); color:#0a2a1d;':bgFinde}${tieneAlgo&&!esHoy?'box-shadow:inset 0 0 0 1px var(--line-strong);':''}">
         ${d}
-        ${evs? `<div class="absolute bottom-1 flex gap-0.5">${evs.slice(0,3).map(e=>`<span class="text-[10px]" title="${e.titulo}">${e.emoji||'•'}</span>`).join('')}</div>`:''}
+        ${tieneAlgo? `<div class="absolute bottom-1 flex gap-0.5 max-w-full overflow-hidden px-0.5">${marcadores}</div>`:''}
       </div>`;
   }
   document.getElementById('grillaCalendario').innerHTML = celdas;
+}
+function toggleVistaCalendario(){
+  calVista = calVista==='mes' ? 'lista' : 'mes';
+  const grid = document.getElementById('calGridWrap');
+  const agenda = document.getElementById('calAgenda');
+  const btn = document.getElementById('calToggleVista');
+  if(calVista==='lista'){
+    grid.classList.add('hidden'); agenda.classList.remove('hidden');
+    btn.innerHTML = '<i class="fas fa-calendar"></i> Mes';
+    renderAgendaCalendario();
+  } else {
+    agenda.classList.add('hidden'); grid.classList.remove('hidden');
+    btn.innerHTML = '<i class="fas fa-list"></i> Lista';
+    renderCalendario();
+  }
+}
+function renderAgendaCalendario(){
+  const hoy0 = new Date(new Date().toDateString());
+  const items = [];
+  DB.eventos.forEach(e=>{
+    if(!e.completado){ const f=new Date(e.fecha+'T00:00'); if(f>=hoy0) items.push({fecha:f, tipo:'evento', emoji:e.emoji||'🎉', titulo:e.titulo, id:e.id}); }
+    if(e.fechaPago && !e.pagado){ const p=new Date(e.fechaPago+'T00:00'); if(p>=hoy0) items.push({fecha:p, tipo:'pago', emoji:'💳', titulo:`Pago: ${e.titulo}`, id:e.id}); }
+  });
+  DB.familia.forEach(m=>{
+    if(!m.cumpleanos) return;
+    const [mm,dd] = m.cumpleanos.split('-').map(Number);
+    let f = new Date(hoy0.getFullYear(), mm-1, dd);
+    if(f < hoy0) f = new Date(hoy0.getFullYear()+1, mm-1, dd);
+    items.push({fecha:f, tipo:'cumple', emoji:'🎂', titulo:`Cumple de ${m.nombre}`, id:null});
+  });
+  items.sort((a,b)=> a.fecha - b.fecha);
+  const cont = document.getElementById('calAgenda');
+  if(!items.length){ cont.innerHTML = `<div class="card p-8 text-center text-[var(--ink-faint)]"><i class="fas fa-calendar-check text-2xl mb-2"></i><p>No hay nada próximo en la agenda.</p></div>`; return; }
+  cont.innerHTML = items.slice(0,30).map(it=>{
+    const dias = Math.ceil((it.fecha - hoy0)/86400000);
+    const cuando = dias===0?'Hoy':dias===1?'Mañana':`en ${dias} días`;
+    const fechaStr = it.fecha.toLocaleDateString('es-ES',{weekday:'short', day:'numeric', month:'short'});
+    const col = it.tipo==='pago'?'var(--gold-soft)':it.tipo==='cumple'?'var(--terracotta)':'var(--sage-soft)';
+    const clickable = it.id ? `onclick="abrirDetalleEvento(${it.id})"` : '';
+    return `
+      <div ${clickable} class="card p-3 flex items-center gap-3 ${it.id?'cursor-pointer':''}">
+        <span class="text-xl flex-shrink-0">${it.emoji}</span>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">${it.titulo}</p>
+          <p class="text-xs" style="color:${col}">${fechaStr} · ${cuando}</p>
+        </div>
+        ${it.id?`<i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs"></i>`:''}
+      </div>`;
+  }).join('');
+}
+function verDiaCalendario(d){
+  const fechaISO = `${calAnio}-${String(calMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const { ev, cum, pag } = itemsCalendarioMes(calAnio, calMes);
+  const evs = ev[d]||[], cums = cum[d]||[], pags = pag[d]||[];
+  const fechaStr = new Date(fechaISO+'T00:00').toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long'});
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display = 'flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  let cuerpo = '';
+  if(evs.length){
+    cuerpo += `<p class="flabel mt-1">Eventos</p>`;
+    cuerpo += evs.map(e=>`
+      <button onclick="abrirDetalleEvento(${e.id})" class="w-full flex items-center gap-2 py-2 border-b border-[var(--line)] last:border-0 text-left">
+        <span class="text-lg">${e.emoji||'🎉'}</span>
+        <span class="flex-1 text-sm font-semibold ${e.completado?'text-[var(--ink-faint)] line-through':''}">${e.titulo}</span>
+        <i class="fas fa-chevron-right text-[var(--ink-faint)] text-xs"></i>
+      </button>`).join('');
+  }
+  if(pags.length){
+    cuerpo += `<p class="flabel mt-3">💳 Pagos</p>`;
+    cuerpo += pags.map(e=>`<div class="flex items-center gap-2 py-1.5 text-sm"><span>💳</span><span class="flex-1">${e.titulo}</span></div>`).join('');
+  }
+  if(cums.length){
+    cuerpo += `<p class="flabel mt-3">🎂 Cumpleaños</p>`;
+    cuerpo += cums.map(m=>`<div class="flex items-center gap-2 py-1.5 text-sm"><span>🎂</span><span class="flex-1">${m.nombre}</span></div>`).join('');
+  }
+  if(!cuerpo) cuerpo = `<p class="text-sm text-[var(--ink-faint)] py-3">No hay nada agendado este día.</p>`;
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-3">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-calendar-day"></i></div>
+      <h3 class="serif text-xl font-semibold capitalize">${fechaStr}</h3>
+    </div>
+    <div class="mb-4">${cuerpo}</div>
+    <div class="flex gap-2">
+      <button onclick="crearEventoEnFecha('${fechaISO}')" class="btn btn-primary flex-1 py-3 flex items-center justify-center gap-2"><i class="fas fa-plus"></i> Crear evento</button>
+      <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
+    </div>`;
+}
+function crearEventoEnFecha(fechaISO){
+  closeModal();
+  iniciarAsistente('evento');
+  setTimeout(()=>{ const f=document.getElementById('ev-fecha'); if(f) f.value = fechaISO; }, 60);
 }
 
 /* ---------- Render: Gastos / Deudas ---------- */
@@ -2143,7 +2270,7 @@ function mostrarPanel(nombre, fromHistory){
   if(nombre==='gasto'){ poblarFormGasto(); renderBalance(); }
   if(nombre==='memoria'){ poblarFormMemoria(); renderMemorias(); }
   if(nombre==='familia'){ renderFamilia(); }
-  if(nombre==='calendario'){ renderCalendario(); }
+  if(nombre==='calendario'){ if(calVista==='lista') renderAgendaCalendario(); else renderCalendario(); }
   if(nombre==='votaciones'){ renderVotaciones(); }
   if(nombre==='gastohogar'){ renderGastosHogarEstado(); }
   if(nombre==='resumen'){ renderResumen(); }
