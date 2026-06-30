@@ -628,8 +628,8 @@ const DEFAULTS = {
   ],
   memorias: [],
   gastosFijos: [
-    { id:1, nombre:"Internet", categoria:"internet", monto:150, participantes:[1,2,3], pagado:false },
-    { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", monto:80, participantes:[2], pagado:false },
+    { id:1, nombre:"Internet", categoria:"internet", tipo:"fijo", monto:150, participantes:[1,2,3] },
+    { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", tipo:"variable", monto:80, participantes:[2] },
   ],
   config: { pinHogar: null, pinApp: null },
 };
@@ -715,6 +715,7 @@ function renderGastosHogarEstado(){
   }
 
   acciones.innerHTML = `
+    <button onclick="iniciarNuevoMesHogar()" class="text-sm text-[var(--gold-soft)] hover:text-[var(--gold)] font-medium flex items-center gap-1" title="Resaltar los gastos variables para actualizarlos"><i class="fas fa-rotate"></i> Nuevo mes</button>
     <button onclick="compartirGastosHogarWhatsApp()" class="text-[var(--ink-faint)] hover:text-[#25d366]" title="Compartir por WhatsApp"><i class="fab fa-whatsapp"></i></button>
     <button onclick="configurarPinHogar()" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Cambiar clave"><i class="fas fa-key"></i></button>
     <button onclick="bloquearGastosHogar()" class="text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Bloquear de nuevo"><i class="fas fa-lock"></i></button>
@@ -1884,17 +1885,20 @@ function renderGastosFijos(){
       ? Object.keys(g.aportes).map(Number)
       : ((g.participantes && g.participantes.length) ? g.participantes : (g.responsable ? [g.responsable] : DB.familia.map(f=>f.id)));
     const porPersona = g.monto / participantes.length;
+    const esVariable = g.tipo === 'variable';
+    const necesitaActualizar = esVariable && g.actualizar;
     return `
-    <div class="flex items-start gap-3 bg-[var(--bg-soft)] rounded-xl px-3 py-2.5 ${g.pagado?'opacity-60':''}">
-      <label class="flex items-center mt-1 cursor-pointer" title="${g.pagado?'Pagado':'Marcar como pagado'}">
-        <input type="checkbox" ${g.pagado?'checked':''} onchange="alternarPagadoFijo(${g.id})" style="width:auto; accent-color:var(--sage)">
-      </label>
+    <div class="flex items-start gap-3 bg-[var(--bg-soft)] rounded-xl px-3 py-2.5" style="${necesitaActualizar?'border:1px solid var(--gold); box-shadow:0 0 0 1px var(--gold);':'border:1px solid var(--line);'}">
       <span class="text-lg mt-0.5">${ICONOS_CATEGORIA[g.categoria]||'📦'}</span>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2">
-          <p class="text-sm font-medium truncate ${g.pagado?'line-through':''}">${g.nombre}</p>
-          <span class="mono text-sm font-semibold flex-shrink-0">S/${g.monto.toLocaleString()}</span>
+          <p class="text-sm font-medium truncate flex items-center gap-1.5">
+            <span class="truncate">${g.nombre}</span>
+            <span class="chip flex-shrink-0" style="font-size:.6rem; padding:.05rem .4rem; background:${esVariable?'rgba(245,158,11,.15)':'rgba(16,185,129,.12)'}; color:${esVariable?'var(--gold-soft)':'var(--sage-soft)'};">${esVariable?'Variable':'Fijo'}</span>
+          </p>
+          <button onclick="editarMontoRapido(${g.id})" class="mono text-sm font-semibold flex-shrink-0 flex items-center gap-1 ${necesitaActualizar?'text-[var(--gold)]':'hover:text-[var(--gold-soft)]'}" title="Tocar para cambiar el monto">S/${g.monto.toLocaleString()} <i class="fas fa-pen text-[8px] opacity-50"></i></button>
         </div>
+        ${necesitaActualizar?`<p class="text-[11px] text-[var(--gold-soft)] mt-0.5"><i class="fas fa-circle-exclamation"></i> Actualiza el monto de este mes</p>`:''}
         <p class="text-xs text-[var(--ink-faint)] mt-0.5">
           ${tieneAportes
             ? `Aporte personalizado entre ${participantes.length} ${participantes.length===1?'persona':'personas'}`
@@ -1919,11 +1923,42 @@ function renderGastosFijos(){
     </div>`;
   }).join('');
 }
-function alternarPagadoFijo(id){
-  const g = DB.gastosFijos.find(x=>x.id===id);
-  g.pagado = !g.pagado;
+function iniciarNuevoMesHogar(){
+  const variables = DB.gastosFijos.filter(g=>g.tipo==='variable');
+  if(!variables.length){ toast('Marca primero algún gasto como "Variable" (con el lápiz) para usar Nuevo mes.', 'warn'); return; }
+  guardarSnapshot();
+  variables.forEach(g=> g.actualizar = true);
   guardar(); renderGastosFijos();
-  toast(g.pagado ? `${g.nombre} marcado como pagado ✅` : `${g.nombre} marcado como pendiente`);
+  toastDeshacer(`Nuevo mes: actualiza ${variables.length} gasto${variables.length===1?'':'s'} variable${variables.length===1?'':'s'} 🔄`);
+}
+function editarMontoRapido(id){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
+  if(tieneAportes){ editarGastoFijo(id); return; }
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <h3 class="serif text-xl font-semibold mb-1">${ICONOS_CATEGORIA[g.categoria]||'📦'} ${g.nombre}</h3>
+    <p class="text-sm text-[var(--ink-faint)] mb-4">Cambia el monto de este mes</p>
+    <label class="flabel">Monto total (S/)</label>
+    <input id="mr-monto" type="number" min="0" value="${g.monto}" class="mt-1">
+    <div class="flex gap-2 mt-4">
+      <button onclick="guardarMontoRapido(${id})" class="btn btn-primary flex-1 py-3">Guardar</button>
+      <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cancelar</button>
+    </div>`;
+  setTimeout(()=>{ const i=document.getElementById('mr-monto'); if(i){ i.focus(); i.select(); } }, 60);
+}
+function guardarMontoRapido(id){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  const nuevo = parseFloat(document.getElementById('mr-monto').value);
+  if(isNaN(nuevo) || nuevo<=0){ toast('Ingresa un monto válido', 'bad'); return; }
+  g.monto = nuevo; g.actualizar = false;
+  guardar(); closeModal(); renderGastosFijos();
+  toast(`${g.nombre}: S/${nuevo.toLocaleString()} ✏️`);
 }
 function verBoletasFijo(id){
   const back = document.getElementById('modalBackdrop');
@@ -2005,6 +2040,15 @@ function abrirFormGastoFijo(id){
 
       <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
         <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="gf-tipo" value="fijo" ${(!g || g.tipo!=='variable')?'checked':''} style="width:auto"> 🟢 Fijo — mismo monto cada mes (internet, gas)
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="gf-tipo" value="variable" ${g?.tipo==='variable'?'checked':''} style="width:auto"> 🟡 Variable — cambia cada mes (limpieza, cocina)
+        </label>
+      </div>
+
+      <div class="space-y-1.5 bg-[var(--bg-soft)] rounded-xl p-3">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
           <input type="radio" name="gf-modo" value="igual" ${modoIgual?'checked':''} onchange="cambiarModoGastoFijo()" style="width:auto"> Repartir en partes iguales
         </label>
         <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -2059,6 +2103,7 @@ function actualizarTotalPersonalizado(){
 async function guardarGastoFijo(id){
   const nombre = document.getElementById('gf-nombre').value.trim();
   const categoria = document.getElementById('gf-categoria').value;
+  const tipo = (document.querySelector('input[name="gf-tipo"]:checked')||{}).value || 'fijo';
   const modo = document.querySelector('input[name="gf-modo"]:checked').value;
 
   let monto, participantes, aportes = null;
@@ -2082,10 +2127,10 @@ async function guardarGastoFijo(id){
 
   let g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
   if(g){
-    g.nombre=nombre; g.categoria=categoria; g.monto=monto; g.participantes=participantes; g.aportes=aportes; delete g.responsable;
+    g.nombre=nombre; g.categoria=categoria; g.tipo=tipo; g.monto=monto; g.participantes=participantes; g.aportes=aportes; g.actualizar=false; delete g.responsable;
     toast('Gasto del hogar actualizado ✏️');
   } else {
-    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, monto, participantes, aportes, boletas:[], pagado:false });
+    DB.gastosFijos.push({ id:Date.now(), nombre, categoria, tipo, monto, participantes, aportes, boletas:[] });
     toast('Gasto del hogar agregado 🧹');
   }
   guardar(); renderGastosFijos(); closeModal();
@@ -2796,12 +2841,12 @@ function compartirGastosHogarWhatsApp(){
   let msg = `🏠 *Gastos del hogar — ${mes}*\n\n`;
   DB.gastosFijos.forEach(g=>{
     const icono = iconos[g.categoria]||'📦';
-    const estado = g.pagado ? '✅' : '⬜';
+    const etiqueta = g.tipo==='variable' ? ' _(variable)_' : '';
     const tieneAportes = g.aportes && Object.keys(g.aportes).length > 0;
     const participantes = tieneAportes
       ? Object.keys(g.aportes).map(Number)
       : (g.participantes && g.participantes.length ? g.participantes : DB.familia.map(f=>f.id));
-    msg += `${estado} ${icono} *${g.nombre}* — S/${g.monto.toLocaleString()}\n`;
+    msg += `${icono} *${g.nombre}* — S/${g.monto.toLocaleString()}${etiqueta}\n`;
     if(tieneAportes){
       participantes.forEach(pid=>{
         msg += `   • ${nombrePorId(pid)}: S/${(+g.aportes[pid]).toFixed(2)}\n`;
@@ -2812,10 +2857,7 @@ function compartirGastosHogarWhatsApp(){
     }
   });
   const total = DB.gastosFijos.reduce((s,g)=>s+g.monto, 0);
-  const pagado = DB.gastosFijos.filter(g=>g.pagado).reduce((s,g)=>s+g.monto, 0);
-  const pendiente = total - pagado;
   msg += `\n💰 *Total: S/${total.toLocaleString()}*`;
-  if(pendiente > 0) msg += ` · Pendiente: S/${pendiente.toLocaleString()}`;
   msg += `\n🌿 _YuyoChain • Familia Unida_`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
