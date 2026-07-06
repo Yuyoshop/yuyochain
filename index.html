@@ -164,6 +164,10 @@
   #fab.abierto .fab-sub:nth-child(2){ transition-delay:.02s } #fab.abierto .fab-sub:nth-child(3){ transition-delay:.06s } #fab.abierto .fab-sub:nth-child(4){ transition-delay:.1s }
   .fab-sub-label{ background:var(--surface); border:1px solid var(--line); color:var(--ink); font-size:.8rem; font-weight:600; padding:.35rem .7rem; border-radius:10px; box-shadow:var(--shadow-md); white-space:nowrap; }
   .fab-sub-btn{ width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; box-shadow:var(--shadow-md); flex-shrink:0; }
+  @media (max-width:640px){
+    #fab{ right:.85rem; bottom:.85rem; }
+    #fabMain{ width:48px; height:48px; font-size:1.25rem; }
+  }
 
   @media (prefers-reduced-motion: reduce){ *,.card,.btn,.toast,.grow-ring,.panel,.glass-btn,.fade-up{ animation:none !important; transition:none !important; } }
 </style>
@@ -208,7 +212,7 @@
   </div>
 </div>
 
-<div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 relative z-10">
+<div class="max-w-7xl mx-auto p-4 sm:p-5 md:p-8 pb-24 sm:pb-28 relative z-10">
 
   <!-- Header persistente -->
   <header class="flex items-center justify-between mb-6">
