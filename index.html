@@ -344,9 +344,12 @@
       </div>
     </div>
     <div class="max-w-2xl mx-auto mt-10">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="serif text-xl font-medium">Próximos eventos</h3>
-        <span id="contadorEventos" class="chip bg-[var(--surface-2)] text-[var(--ink-dim)]"></span>
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="min-w-0">
+          <h3 class="serif text-xl font-medium">Próximos eventos</h3>
+          <p class="text-[11px] text-[var(--ink-faint)] mt-0.5">En cada evento: 📋 tareas y compras · ✏️ editar · ✓ finalizar · 🗑️ borrar</p>
+        </div>
+        <span id="contadorEventos" class="chip bg-[var(--surface-2)] text-[var(--ink-dim)] flex-shrink-0"></span>
       </div>
       <div id="proximos" class="space-y-4"></div>
     </div>
@@ -942,7 +945,7 @@ function editarTelefonoFamiliar(id){
   if(!m) return;
   const tel = prompt(`Número de WhatsApp de ${m.nombre} (solo dígitos, sin +51):`, m.telefono||'');
   if(tel===null) return;
-  m.telefono = tel.trim() || null;
+  m.telefono = limpiarTexto(tel).replace(/[^0-9 +-]/g,'') || null;
   guardar(); renderFamilia();
   toast(m.telefono ? `WhatsApp de ${m.nombre} guardado 📱` : 'Número eliminado');
 }
@@ -997,7 +1000,7 @@ function agregarRegalo(familiarId){
   if(!m) return;
   if(!m.listaRegalos) m.listaRegalos = [];
   const input = document.getElementById(`regalo-input-${familiarId}`);
-  const texto = input.value.trim();
+  const texto = limpiarTexto(input.value);
   if(!texto){ toast('Escribe el regalo primero', 'bad'); return; }
   m.listaRegalos.push({ id:Date.now(), texto, reservadoPor:null });
   guardar(); renderModalRegalos(familiarId); renderFamilia();
@@ -1055,7 +1058,7 @@ function renombrarFamiliar(id){
   const nuevo = prompt('¿Cómo quieres llamarte?', m.nombre);
   if(nuevo===null) return;
   if(!nuevo.trim()){ toast('El nombre no puede estar vacío', 'bad'); return; }
-  m.nombre = nuevo.trim();
+  m.nombre = limpiarTexto(nuevo);
   guardar(); renderFamilia(); renderBalance(); renderEventos();
   toast('Nombre actualizado ✏️');
 }
@@ -1110,7 +1113,7 @@ function renderEventos(){
     const tareasHTML = tareas.length ? `<span class="chip text-[9px] px-1.5 py-0.5 ml-1" style="background:rgba(16,185,129,.14); border:1px solid var(--line)"><i class="fas fa-check-square"></i> ${hechas}/${tareas.length}</span>` : '';
 
     return `
-    <div class="card p-5">
+    <div class="card p-5" style="border-left:4px solid ${urgente?'var(--terracotta)':'var(--sage)'};">
       <div class="flex items-center gap-4">
         <div class="relative w-20 h-20 flex-shrink-0">
           <svg viewBox="0 0 70 70" class="ring w-20 h-20">
@@ -1225,9 +1228,9 @@ function editarEvento(id){
 function guardarEdicionEvento(id){
   const e = DB.eventos.find(x=>x.id===id);
   if(!e) return;
-  const titulo = document.getElementById('ee-titulo').value.trim();
+  const titulo = limpiarTexto(document.getElementById('ee-titulo').value);
   const fecha = document.getElementById('ee-fecha').value;
-  const emoji = document.getElementById('ee-emoji').value || '🎉';
+  const emoji = limpiarTexto(document.getElementById('ee-emoji').value) || '🎉';
   const presupuesto = parseFloat(document.getElementById('ee-presupuesto').value) || null;
   const fechaPago = document.getElementById('ee-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el nombre o la fecha', 'bad'); return; }
@@ -1338,10 +1341,10 @@ function agregarCompra(eventoId){
   if(!e) return;
   if(!e.compras) e.compras = [];
   const input = document.getElementById(`compra-input-${eventoId}`);
-  const item = input.value.trim();
+  const item = limpiarTexto(input.value);
   if(!item){ toast('Escribe el ítem primero', 'bad'); return; }
   const cantInput = document.getElementById(`compra-cant-${eventoId}`);
-  const cantidad = cantInput.value.trim();
+  const cantidad = limpiarTexto(cantInput.value);
   const respSel = document.getElementById(`compra-resp-${eventoId}`);
   const responsableId = respSel.value ? +respSel.value : null;
   e.compras.push({ id:Date.now(), item, cantidad, responsableId, comprado:false });
@@ -1415,7 +1418,7 @@ function agregarTarea(eventoId){
   if(!e) return;
   if(!e.tareas) e.tareas = [];
   const input = document.getElementById(`tarea-input-${eventoId}`);
-  const texto = input.value.trim();
+  const texto = limpiarTexto(input.value);
   if(!texto){ toast('Escribe la tarea primero', 'bad'); return; }
   const respSel = document.getElementById(`tarea-resp-${eventoId}`);
   const responsableId = respSel.value ? +respSel.value : null;
@@ -1763,7 +1766,7 @@ function renderBalance(){
          </div>`
       : `<div class="flex items-center gap-2"><span class="text-base">🧾</span><p class="text-sm font-semibold">Gastos generales</p></div>`;
     return `
-    <div class="rounded-2xl p-3.5 mb-2.5" style="background:var(--bg-soft); border:1px solid var(--line);">
+    <div class="rounded-2xl p-3.5 mb-2.5" style="background:var(--bg-soft); border:1px solid var(--line); border-left:4px solid var(--sage);">
       <div class="flex items-center justify-between gap-2 mb-2.5">
         <span class="chip" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">Balance ${i+1}</span>
         <span class="mono text-xs font-semibold text-[var(--gold-soft)]">S/${totalGrupo.toLocaleString()}</span>
@@ -1885,7 +1888,7 @@ function actualizarTotalPersonalizadoEdicionGasto(){
 }
 async function guardarEdicionGasto(id){
   const g = DB.gastos.find(x=>x.id===id);
-  const descripcion = document.getElementById('ge-desc').value.trim();
+  const descripcion = limpiarTexto(document.getElementById('ge-desc').value);
   const pagadoPor = +document.getElementById('ge-pago').value;
   const modo = document.querySelector('input[name="ge-modo"]:checked').value;
   const archivo = document.getElementById('ge-boleta').files[0];
@@ -2150,7 +2153,7 @@ function actualizarTotalPersonalizado(){
   if(span) span.textContent = 'S/' + total.toFixed(2);
 }
 async function guardarGastoFijo(id){
-  const nombre = document.getElementById('gf-nombre').value.trim();
+  const nombre = limpiarTexto(document.getElementById('gf-nombre').value);
   const categoria = document.getElementById('gf-categoria').value;
   const tipo = (document.querySelector('input[name="gf-tipo"]:checked')||{}).value || 'fijo';
   const modo = document.querySelector('input[name="gf-modo"]:checked').value;
@@ -2199,15 +2202,15 @@ function renderVotaciones(){
     const votos = Object.values(v.votos||{});
     const si = votos.filter(x=>x==='si').length, no = votos.filter(x=>x==='no').length;
     return `
-    <div class="card p-5">
+    <div class="card p-5" style="border-left:4px solid var(--terracotta);">
       <div class="flex items-start justify-between gap-2">
-        <p class="font-semibold flex-1">${v.titulo}</p>
+        <p class="font-semibold flex-1">${escHTML(v.titulo)}</p>
         <div class="flex items-center gap-1 flex-shrink-0">
           <button onclick="editarVotacion(${v.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Editar"><i class="fas fa-pen text-xs"></i></button>
           <button onclick="eliminarVotacion(${v.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
         </div>
       </div>
-      <p class="text-[var(--ink-faint)] text-sm mt-1">${v.descripcion||''}</p>
+      <p class="text-[var(--ink-faint)] text-sm mt-1">${escHTML(v.descripcion||'')}</p>
       <div class="mt-4 grid grid-cols-2 gap-2">
         <button onclick="votar(${v.id},'si')" class="btn py-2.5" style="background:rgba(52,211,153,.15); color:var(--good); border:1px solid var(--good)">👍 Sí (${si})</button>
         <button onclick="votar(${v.id},'no')" class="btn py-2.5" style="background:rgba(251,113,133,.15); color:var(--bad); border:1px solid var(--bad)">👎 No (${no})</button>
@@ -2242,8 +2245,8 @@ function editarVotacion(id){
 }
 function guardarEdicionVotacion(id){
   const v = DB.votaciones.find(x=>x.id===id);
-  const titulo = document.getElementById('ve-titulo').value.trim();
-  const descripcion = document.getElementById('ve-desc').value.trim();
+  const titulo = limpiarTexto(document.getElementById('ve-titulo').value);
+  const descripcion = limpiarTexto(document.getElementById('ve-desc').value);
   if(!titulo){ toast('Falta el título de la propuesta', 'bad'); return; }
   v.titulo = titulo; v.descripcion = descripcion;
   guardar(); renderVotaciones(); closeModal();
@@ -2276,7 +2279,7 @@ function editarMemoria(id){
   if(!m) return;
   const nuevo = prompt('Título de la memoria:', m.titulo);
   if(nuevo===null) return;
-  m.titulo = nuevo.trim() || 'Sin título';
+  m.titulo = limpiarTexto(nuevo) || 'Sin título';
   guardar(); renderMemorias();
   toast('Memoria actualizada ✏️');
 }
@@ -2534,9 +2537,9 @@ function aplicarPlantilla(nombre){
 }
 
 function guardarEvento(){
-  const titulo = document.getElementById('ev-titulo').value.trim();
+  const titulo = limpiarTexto(document.getElementById('ev-titulo').value);
   const fecha = document.getElementById('ev-fecha').value;
-  const emoji = document.getElementById('ev-emoji').value || '🎉';
+  const emoji = limpiarTexto(document.getElementById('ev-emoji').value) || '🎉';
   const presupuesto = parseFloat(document.getElementById('ev-presupuesto').value) || null;
   const fechaPago = document.getElementById('ev-fechapago').value || null;
   if(!titulo || !fecha){ toast('Falta el título o la fecha', 'bad'); return; }
@@ -2552,7 +2555,7 @@ function guardarEvento(){
   avanzarAsistente(`📅 Evento creado: "${titulo}"`);
 }
 async function guardarGasto(){
-  const descripcion = document.getElementById('g-desc').value.trim();
+  const descripcion = limpiarTexto(document.getElementById('g-desc').value);
   const pagadoPor = +document.getElementById('g-pago').value;
   const modo = document.querySelector('input[name="g-modo"]:checked').value;
   const archivo = document.getElementById('g-boleta').files[0];
@@ -2589,8 +2592,8 @@ async function guardarGasto(){
   avanzarAsistente(`💰 Gasto registrado: "${descripcion}" — S/${monto.toLocaleString()}`);
 }
 function agregarFamiliar(){
-  const nombre = document.getElementById('f-nombre').value.trim();
-  const emoji = document.getElementById('f-emoji').value || '🙂';
+  const nombre = limpiarTexto(document.getElementById('f-nombre').value);
+  const emoji = limpiarTexto(document.getElementById('f-emoji').value) || '🙂';
   const color = document.getElementById('f-color').value;
   if(!nombre){ toast('Falta el nombre', 'bad'); return; }
   DB.familia.push({ id:Date.now(), nombre, emoji, color });
@@ -2602,15 +2605,15 @@ function eliminarFamiliar(id){
   guardar(); renderFamilia(); openModal('familiar');
 }
 function guardarVotacion(){
-  const titulo = document.getElementById('v-titulo').value.trim();
-  const descripcion = document.getElementById('v-desc').value.trim();
+  const titulo = limpiarTexto(document.getElementById('v-titulo').value);
+  const descripcion = limpiarTexto(document.getElementById('v-desc').value);
   if(!titulo){ toast('Falta el título de la propuesta', 'bad'); return; }
   DB.votaciones.push({ id:Date.now(), titulo, descripcion, votos:{} });
   guardar(); renderVotaciones(); closeModal();
   toast('Propuesta publicada 🗳️');
 }
 async function guardarMemoria(){
-  const titulo = document.getElementById('m-titulo').value.trim() || 'Sin título';
+  const titulo = limpiarTexto(document.getElementById('m-titulo').value) || 'Sin título';
   const file = document.getElementById('m-foto').files[0];
   if(!file){ toast('Selecciona una foto', 'bad'); return; }
   const eventoIdStr = document.getElementById('m-evento').value;
@@ -2700,7 +2703,7 @@ function renderEstadoInicio(){
     const totalGrupo = grp.gastos.reduce((s,g)=>s+g.monto,0);
     const nombre = e ? `${e.emoji||'🎉'} ${e.titulo}` : '🧾 Gastos generales';
     return `
-      <div class="rounded-xl p-2.5 mb-2 last:mb-0" style="background:var(--bg-soft); border:1px solid var(--line);">
+      <div class="rounded-xl p-2.5 mb-2 last:mb-0" style="background:var(--bg-soft); border:1px solid var(--line); border-left:3px solid var(--sage);">
         <div class="flex items-center justify-between gap-2 mb-1.5">
           <span class="text-xs font-semibold truncate flex items-center gap-1.5"><span class="chip text-[9px] px-1.5 py-0.5" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">B${i+1}</span> <span class="truncate">${nombre}</span></span>
           <span class="mono text-[11px] font-semibold text-[var(--gold-soft)] flex-shrink-0">S/${totalGrupo.toLocaleString()}</span>
@@ -2723,6 +2726,7 @@ function renderEstadoInicio(){
           <i class="fas fa-chevron-right text-xs"></i>
         </span>
       </div>
+      <p class="text-[11px] text-[var(--ink-faint)] mb-2.5">Quién le debe a quién, separado por evento. Toca para ver todo.</p>
       ${gruposBal.length ? bloquesBal
         + (gruposBal.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-1">+${gruposBal.length-3} balance${gruposBal.length-3===1?'':'s'} más → Ver gastos</p>` : '')
       : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo parejo, nadie debe nada</p>`}
@@ -2804,7 +2808,7 @@ function renderEstadoInicio(){
       const empate = si === no && total > 0;
       return `
         <div class="flex items-center justify-between gap-3 py-1.5 border-b border-[var(--line)] last:border-0">
-          <p class="text-sm flex-1 truncate">${v.titulo}</p>
+          <p class="text-sm flex-1 truncate">${escHTML(v.titulo)}</p>
           <div class="flex items-center gap-1.5 flex-shrink-0 text-xs">
             <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaSi?'rgba(52,211,153,.2)':'rgba(255,255,255,.05)'}; color:${ganaSi?'var(--good)':'var(--ink-faint)'}; border:1px solid ${ganaSi?'var(--good)':'var(--line)'}">👍 ${si}</span>
             <span class="px-2 py-0.5 rounded-full mono font-semibold" style="background:${ganaNo?'rgba(251,113,133,.2)':'rgba(255,255,255,.05)'}; color:${ganaNo?'var(--bad)':'var(--ink-faint)'}; border:1px solid ${ganaNo?'var(--bad)':'var(--line)'}">👎 ${no}</span>
@@ -2936,6 +2940,8 @@ const BOLSILLO_RIESGOS = { bajo:{txt:'riesgo bajo', col:'var(--good)'}, medio:{t
 
 function round2(v){ return Math.round(v*100)/100; }
 function escHTML(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+// Sanea texto de usuario al guardarlo: sin <, > ni comillas dobles (previene inyección de HTML/atributos en toda la app)
+function limpiarTexto(s){ return String(s==null?'':s).replace(/[<>"]/g,'').trim(); }
 function fmtDinero(monto, moneda){
   const n = (+monto).toLocaleString('es-PE',{ maximumFractionDigits:2 });
   return (moneda==='USD' ? '$ ' : 'S/ ') + n;
@@ -3357,9 +3363,9 @@ function abrirFormParte(parteId){
 }
 function guardarParteBolsillo(parteId){
   const b = miBolsillo(); if(!b) return;
-  const nombre = document.getElementById('pt-nombre').value.trim();
+  const nombre = limpiarTexto(document.getElementById('pt-nombre').value);
   if(!nombre){ toast('Ponle nombre a la meta', 'bad'); return; }
-  const emoji = document.getElementById('pt-emoji').value || '💰';
+  const emoji = limpiarTexto(document.getElementById('pt-emoji').value) || '💰';
   const plazo = document.getElementById('pt-plazo').value;
   const riesgo = document.getElementById('pt-riesgo').value;
   const tasa = parseFloat(document.getElementById('pt-tasa').value) || null;
@@ -3732,7 +3738,7 @@ function leerFilasComparadorDesdeDOM(){
   const pcts = document.querySelectorAll('.cmp-pct');
   COMPARADOR_DEFAULT.length = 0;
   nombres.forEach((inp,i)=>{
-    COMPARADOR_DEFAULT.push({ nombre: inp.value.trim() || `Opción ${i+1}`, riesgo: riesgos[i].value, pct: parseFloat(pcts[i].value) || 0 });
+    COMPARADOR_DEFAULT.push({ nombre: limpiarTexto(inp.value) || `Opción ${i+1}`, riesgo: riesgos[i].value, pct: parseFloat(pcts[i].value) || 0 });
   });
 }
 function agregarFilaComparador(){
@@ -3750,7 +3756,7 @@ function actualizarComparador(){
   const moneda = document.getElementById('cmp-moneda').value;
   const cap = round2(parseFloat(document.getElementById('cmp-capital').value)||0);
   const filas = Array.from(document.querySelectorAll('.cmp-nombre')).map((inp,i)=>({
-    nombre: inp.value.trim() || `Opción ${i+1}`,
+    nombre: limpiarTexto(inp.value) || `Opción ${i+1}`,
     riesgo: document.querySelectorAll('.cmp-riesgo')[i].value,
     pct: parseFloat(document.querySelectorAll('.cmp-pct')[i].value) || 0,
   }));
