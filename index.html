@@ -3149,7 +3149,8 @@ function renderBolsilloWallet(){
       <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold flex-1 py-3 text-sm"><i class="fas fa-right-left"></i> Movimiento</button>
       <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
     </div>
-    <button onclick="abrirRepartoBolsillo()" class="btn btn-ghost w-full py-3 text-sm mt-2 flex items-center justify-center gap-2"><i class="fas fa-chart-pie"></i> Repartir / simular capital</button>`;
+    <button onclick="abrirRepartoBolsillo()" class="btn btn-ghost w-full py-3 text-sm mt-2 flex items-center justify-center gap-2"><i class="fas fa-chart-pie"></i> Repartir / simular capital</button>
+    <button onclick="reiniciarMiBolsillo()" class="w-full text-xs text-[var(--ink-faint)] hover:text-[var(--bad)] py-3 mt-1 flex items-center justify-center gap-1.5"><i class="fas fa-arrows-rotate"></i> Reiniciar mi bolsillo (empezar de cero)</button>`;
 }
 function abrirFormParte(parteId){
   const b = miBolsillo(); if(!b) return;
@@ -3406,6 +3407,17 @@ function cambiarClaveBolsillo(){
   guardar(); toast('Clave actualizada 🔑');
 }
 function salirBolsillo(){ bolsilloActivo = null; renderBolsillo(); toast('Bolsillo bloqueado 🔒'); }
+function reiniciarMiBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  if(!confirm('¿Vaciar tu bolsillo? Se borran todas tus partes, movimientos y saldos. Tu clave se mantiene. Ideal para empezar de cero.')) return;
+  guardarSnapshot();
+  b.partes.forEach(p=>{ if(p.eventoId) DB.eventos = DB.eventos.filter(e=>e.id!==p.eventoId); });
+  b.partes = [];
+  b.libre = { 'S/':0, 'USD':0 };
+  b.movimientos = [];
+  guardar(); renderBolsilloWallet();
+  toastDeshacer('Bolsillo reiniciado 🧹');
+}
 function editarTcBolsillo(){
   const b = miBolsillo(); if(!b) return;
   const v = prompt('Tipo de cambio referencial (S/ por 1 USD):', b.tc||3.75);
