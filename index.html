@@ -278,6 +278,7 @@
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('votaciones')"><i class="fas fa-square-poll-vertical"></i><span class="glass-label">Votaciones</span></button>
       <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('resumenanual')"><i class="fas fa-chart-bar"></i><span class="glass-label">Resumen</span></button>
       <button class="glass-btn" style="--glow:var(--gold)" onclick="mostrarPanel('mercado')"><i class="fas fa-store"></i><span class="glass-label">Mercado</span></button>
+      <button class="glass-btn" style="--glow:var(--sage)" onclick="mostrarPanel('bolsillo')"><i class="fas fa-wallet"></i><span class="glass-label">Mi bolsillo</span></button>
     </div>
   </div>
 
@@ -568,6 +569,23 @@
     </div>
   </div>
 
+  <!-- ============ PANEL: MI BOLSILLO (finanzas personales) ============ -->
+  <div id="panel-bolsillo" class="panel">
+    <div class="max-w-xl mx-auto">
+      <div class="flex items-center justify-between gap-3 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="sec-badge" style="--glow:var(--sage)"><i class="fas fa-wallet"></i></div>
+          <div>
+            <h2 class="serif text-2xl font-semibold leading-none">Mi bolsillo</h2>
+            <p class="text-xs text-[var(--ink-faint)] mt-1">Finanzas personales · privado</p>
+          </div>
+        </div>
+        <div id="bolsilloAcciones" class="flex items-center gap-2"></div>
+      </div>
+      <div id="bolsilloBody"></div>
+    </div>
+  </div>
+
   <!-- ============ PANEL: VOTACIONES ============ -->
   <div id="panel-votaciones" class="panel">
     <div class="max-w-xl mx-auto">
@@ -659,6 +677,7 @@ const DEFAULTS = {
     { id:1, nombre:"Internet", categoria:"internet", tipo:"fijo", monto:150, participantes:[1,2,3] },
     { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", tipo:"variable", monto:80, participantes:[2] },
   ],
+  bolsillos: {},
   config: { pinHogar: null, pinApp: null },
 };
 
@@ -805,6 +824,7 @@ function deshacerUltimo(){
   renderEventos(); renderCalendario(); renderBalance(); renderFamilia(); renderVotaciones();
   if(panelActual==='inicio') renderEstadoInicio();
   if(panelActual==='resumenanual') renderResumenAnual();
+  if(panelActual==='bolsillo') renderBolsillo();
   toast('Cambio deshecho ↩️');
 }
 function toastDeshacer(msg){
@@ -2343,6 +2363,7 @@ function mostrarPanel(nombre, fromHistory){
   if(nombre==='memoria'){ poblarFormMemoria(); renderMemorias(); }
   if(nombre==='familia'){ renderFamilia(); }
   if(nombre==='calendario'){ if(calVista==='lista') renderAgendaCalendario(); else renderCalendario(); }
+  if(nombre==='bolsillo'){ renderBolsillo(); }
   if(nombre==='votaciones'){ renderVotaciones(); }
   if(nombre==='gastohogar'){ renderGastosHogarEstado(); }
   if(nombre==='resumen'){ renderResumen(); }
@@ -2905,6 +2926,402 @@ function compartirGastosHogarWhatsApp(){
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+/* ---------- Mi bolsillo: finanzas personales por miembro ---------- */
+let bolsilloActivo = null; // se bloquea al recargar la página o al salir
+const BOLSILLO_COLORES = ['#10b981','#f59e0b','#60a5fa','#fb7185','#a78bfa','#34d399','#fb923c','#e879f9'];
+const BOLSILLO_PLAZOS = { corto:'Corto plazo', mediano:'Mediano plazo', largo:'Largo plazo' };
+const BOLSILLO_RIESGOS = { bajo:{txt:'riesgo bajo', col:'var(--good)'}, medio:{txt:'riesgo medio', col:'var(--gold-soft)'}, alto:{txt:'riesgo alto', col:'var(--bad)'} };
+
+function round2(v){ return Math.round(v*100)/100; }
+function fmtDinero(monto, moneda){
+  const n = (+monto).toLocaleString('es-PE',{ maximumFractionDigits:2 });
+  return (moneda==='USD' ? '$ ' : 'S/ ') + n;
+}
+function miembrosBolsillo(){
+  const lista = DB.config.bolsilloAutorizados;
+  return DB.familia.filter(m => !Array.isArray(lista) || lista.includes(m.id));
+}
+function miBolsillo(){ return bolsilloActivo!==null ? DB.bolsillos[bolsilloActivo] : null; }
+function saldoLibre(b, mon){ return round2((b.libre && b.libre[mon]) || 0); }
+
+function renderBolsillo(){
+  if(!DB.bolsillos) DB.bolsillos = {};
+  const acc = document.getElementById('bolsilloAcciones');
+  const body = document.getElementById('bolsilloBody');
+  if(!acc || !body) return;
+  if(bolsilloActivo === null){
+    acc.innerHTML = `<button onclick="adminBolsillo()" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Administrar acceso y claves"><i class="fas fa-user-gear"></i></button>`;
+    const miembros = miembrosBolsillo();
+    body.innerHTML = `
+      <div class="card p-6 text-center">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white mx-auto mb-4" style="background:linear-gradient(145deg,var(--sage-soft),var(--sage) 60%,#0c8358); box-shadow:0 12px 28px -8px rgba(16,185,129,.5);"><i class="fas fa-wallet"></i></div>
+        <h3 class="serif text-xl font-semibold mb-1">¿Quién eres?</h3>
+        <p class="text-sm text-[var(--ink-dim)] mb-5">Tu bolsillo es privado: solo tú lo ves con tu clave personal.</p>
+        ${miembros.length ? `
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          ${miembros.map(m=>`
+            <button onclick="seleccionarMiembroBolsillo(${m.id})" class="btn btn-ghost p-3 flex flex-col items-center gap-1">
+              <span class="text-2xl">${m.emoji}</span>
+              <span class="text-sm font-semibold">${m.nombre}</span>
+              <span class="text-[10px] ${DB.bolsillos[m.id]?'text-[var(--sage-soft)]':'text-[var(--ink-faint)]'}">${DB.bolsillos[m.id]?'🔑 entrar':'crear espacio'}</span>
+            </button>`).join('')}
+        </div>` : `<p class="text-sm text-[var(--ink-faint)]">Nadie está autorizado todavía. Usa el botón de administración (arriba a la derecha) para elegir quiénes pueden usar Mi bolsillo.</p>`}
+      </div>`;
+    return;
+  }
+  renderBolsilloWallet();
+}
+function seleccionarMiembroBolsillo(id){
+  const m = DB.familia.find(f=>f.id===id);
+  if(!m) return;
+  const b = DB.bolsillos[id];
+  const body = document.getElementById('bolsilloBody');
+  body.innerHTML = `
+    <div class="card p-6 max-w-sm mx-auto text-center">
+      <span class="text-4xl">${m.emoji}</span>
+      <h3 class="serif text-xl font-semibold mt-2 mb-1">${m.nombre}</h3>
+      ${b ? `
+        <p class="text-sm text-[var(--ink-dim)] mb-4">Ingresa tu clave personal.</p>
+        <input id="bp-clave" type="password" placeholder="Tu clave" class="!text-center" onkeydown="if(event.key==='Enter') entrarBolsillo(${id})">
+        <button onclick="entrarBolsillo(${id})" class="btn btn-primary w-full py-3 mt-3"><i class="fas fa-unlock-alt"></i> Entrar</button>
+      ` : `
+        <p class="text-sm text-[var(--ink-dim)] mb-4">Crea tu clave personal (mínimo 4 caracteres). No la compartas: protege tu dinero.</p>
+        <input id="bp-clave1" type="password" placeholder="Nueva clave" class="!text-center mb-2">
+        <input id="bp-clave2" type="password" placeholder="Repite la clave" class="!text-center" onkeydown="if(event.key==='Enter') crearEspacioBolsillo(${id})">
+        <button onclick="crearEspacioBolsillo(${id})" class="btn btn-primary w-full py-3 mt-3"><i class="fas fa-wallet"></i> Crear mi bolsillo</button>
+      `}
+      <button onclick="renderBolsillo()" class="w-full text-sm text-[var(--ink-faint)] hover:text-[var(--gold-soft)] py-2 mt-1">← Volver</button>
+    </div>`;
+  setTimeout(()=>{ const i=document.getElementById(b?'bp-clave':'bp-clave1'); if(i) i.focus(); }, 60);
+}
+function entrarBolsillo(id){
+  const v = document.getElementById('bp-clave').value;
+  if(v === DB.bolsillos[id].clave){ bolsilloActivo = id; renderBolsillo(); toast('Bolsillo abierto 🔓'); }
+  else { toast('Clave incorrecta', 'bad'); }
+}
+function crearEspacioBolsillo(id){
+  const c1 = document.getElementById('bp-clave1').value.trim();
+  const c2 = document.getElementById('bp-clave2').value.trim();
+  if(c1.length < 4){ toast('La clave debe tener al menos 4 caracteres', 'bad'); return; }
+  if(c1 !== c2){ toast('Las claves no coinciden', 'bad'); return; }
+  DB.bolsillos[id] = { clave:c1, partes:[], libre:{'S/':0,'USD':0}, movimientos:[], tc:3.75 };
+  bolsilloActivo = id;
+  guardar(); renderBolsillo();
+  toast('¡Bolsillo creado! Registra tu primer depósito 💰');
+}
+function renderBolsilloWallet(){
+  const m = DB.familia.find(f=>f.id===bolsilloActivo);
+  const b = miBolsillo();
+  if(!m || !b){ bolsilloActivo=null; renderBolsillo(); return; }
+  const acc = document.getElementById('bolsilloAcciones');
+  const body = document.getElementById('bolsilloBody');
+  acc.innerHTML = `
+    <button onclick="cambiarClaveBolsillo()" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]" title="Cambiar mi clave"><i class="fas fa-key"></i></button>
+    <button onclick="salirBolsillo()" class="btn btn-ghost px-3 py-2 text-sm flex items-center gap-1.5" title="Bloquear mi bolsillo"><i class="fas fa-lock"></i> Salir</button>`;
+
+  const tc = b.tc || 3.75;
+  const tot = { 'S/': saldoLibre(b,'S/'), 'USD': saldoLibre(b,'USD') };
+  b.partes.forEach(p=>{ tot[p.moneda] = round2((tot[p.moneda]||0) + p.monto); });
+  const totalEq = tot['S/'] + tot['USD']*tc;
+
+  const seg = [];
+  b.partes.forEach(p=>{ const eq = p.moneda==='USD' ? p.monto*tc : p.monto; if(eq>0) seg.push({w:eq, col:p.color, nom:p.nombre}); });
+  const libreEq = saldoLibre(b,'S/') + saldoLibre(b,'USD')*tc;
+  if(libreEq>0) seg.push({w:libreEq, col:'var(--line-strong)', nom:'Libre'});
+
+  const capitalStr = [ (tot['S/']>0 || tot['USD']<=0) ? fmtDinero(tot['S/'],'S/') : null, tot['USD']>0 ? fmtDinero(tot['USD'],'USD') : null ].filter(Boolean).join(' + ');
+
+  const filas = b.partes.length ? b.partes.map(p=>{
+    const r = BOLSILLO_RIESGOS[p.riesgo] || BOLSILLO_RIESGOS.medio;
+    return `
+    <div class="card p-3.5 flex items-center gap-3 mb-2">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background:${p.color}22; box-shadow:inset 0 0 0 1px ${p.color};">${p.emoji||'💰'}</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold truncate">${p.nombre}</p>
+        <p class="text-[11px] text-[var(--ink-faint)]">${BOLSILLO_PLAZOS[p.plazo]||''} · <span style="color:${r.col}">${r.txt}</span>${p.tasa?` · ${p.tasa}% anual`:''}</p>
+      </div>
+      <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
+      <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar parte"><i class="fas fa-pen text-xs"></i></button>
+    </div>`;
+  }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes partes. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
+
+  body.innerHTML = `
+    <div class="card p-5 mb-4">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Capital total · ${m.emoji} ${m.nombre}</p>
+        <span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.12); color:var(--gold-soft);"><i class="fas fa-lock text-[9px]"></i> privado</span>
+      </div>
+      <div class="flex items-baseline gap-3 mt-1 mb-3 flex-wrap">
+        <span class="text-3xl font-bold mono">${capitalStr}</span>
+        <span class="text-xs text-[var(--gold-soft)]">libre: ${fmtDinero(saldoLibre(b,'S/'),'S/')}${saldoLibre(b,'USD')>0 ? ' · '+fmtDinero(saldoLibre(b,'USD'),'USD') : ''}</span>
+      </div>
+      ${totalEq>0 ? `
+      <div class="flex h-2 rounded-full overflow-hidden" style="gap:2px;">
+        ${seg.map(s=>`<span style="flex:${s.w}; background:${s.col};"></span>`).join('')}
+      </div>
+      <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-[var(--ink-dim)]">
+        ${seg.map(s=>`<span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${s.col}"></span>${s.nom}</span>`).join('')}
+      </div>` : `<p class="text-sm text-[var(--ink-faint)]">Sin dinero todavía. Usa <b>Movimiento → Depositar</b> para ingresar tu primer capital.</p>`}
+      <p class="text-[10px] text-[var(--ink-faint)] mt-3">TC referencial: S/ ${tc} por $1 · <button onclick="editarTcBolsillo()" class="underline hover:text-[var(--gold-soft)]">cambiar</button></p>
+    </div>
+
+    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">Mis partes${b.partes.length?` · ${b.partes.length}`:''}</p>
+    ${filas}
+
+    <div class="flex gap-2 mt-4">
+      <button onclick="abrirFormParte(null)" class="btn btn-primary flex-1 py-3 text-sm"><i class="fas fa-plus"></i> Nueva parte</button>
+      <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold flex-1 py-3 text-sm"><i class="fas fa-right-left"></i> Movimiento</button>
+      <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
+    </div>`;
+}
+function abrirFormParte(parteId){
+  const b = miBolsillo(); if(!b) return;
+  const p = parteId ? b.partes.find(x=>x.id===parteId) : null;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-${p?'pen':'plus'}"></i></div>
+      <h3 class="serif text-xl font-semibold">${p?'Editar parte':'Nueva parte'}</h3>
+    </div>
+    <div class="space-y-3">
+      <div><label class="flabel">Nombre / propósito</label><input id="pt-nombre" value="${p?(p.nombre||'').replace(/"/g,'&quot;'):''}" placeholder="Ej: Ahorro, BTC, Emprendimiento"></div>
+      <div class="flex gap-3">
+        <div style="width:80px" class="flex-shrink-0"><label class="flabel">Emoji</label><input id="pt-emoji" value="${p?(p.emoji||'💰'):'💰'}" class="text-center"></div>
+        <div class="flex-1"><label class="flabel">Moneda</label>
+          <select id="pt-moneda" ${p?'disabled':''}><option value="S/" ${(!p||p.moneda==='S/')?'selected':''}>S/ Soles</option><option value="USD" ${p&&p.moneda==='USD'?'selected':''}>$ Dólares</option></select>
+        </div>
+      </div>
+      ${p?'':`<div><label class="flabel">Monto inicial <span class="opt">(opcional — se registra como depósito)</span></label><input id="pt-monto" type="number" min="0" placeholder="0"></div>`}
+      <div class="flex gap-3">
+        <div class="flex-1"><label class="flabel">Plazo</label>
+          <select id="pt-plazo">
+            <option value="corto" ${p&&p.plazo==='corto'?'selected':''}>Corto (menos de 1 año)</option>
+            <option value="mediano" ${(!p||p.plazo==='mediano')?'selected':''}>Mediano (1 a 3 años)</option>
+            <option value="largo" ${p&&p.plazo==='largo'?'selected':''}>Largo (3+ años)</option>
+          </select>
+        </div>
+        <div class="flex-1"><label class="flabel">Riesgo</label>
+          <select id="pt-riesgo">
+            <option value="bajo" ${(!p||p.riesgo==='bajo')?'selected':''}>🟢 Bajo</option>
+            <option value="medio" ${p&&p.riesgo==='medio'?'selected':''}>🟡 Medio</option>
+            <option value="alto" ${p&&p.riesgo==='alto'?'selected':''}>🔴 Alto</option>
+          </select>
+        </div>
+      </div>
+      <div><label class="flabel">Tasa de interés anual % <span class="opt">(opcional, para ahorros)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="guardarParteBolsillo(${parteId||'null'})" class="btn btn-primary flex-1 py-3">${p?'Guardar cambios':'Crear parte'}</button>
+        ${p?`<button onclick="eliminarParteBolsillo(${p.id})" class="btn btn-ghost px-4 py-3" title="Eliminar (su dinero pasa a Libre)"><i class="fas fa-trash text-[var(--bad)]"></i></button>`:''}
+        <button onclick="closeModal()" class="btn btn-ghost px-4 py-3">Cancelar</button>
+      </div>
+    </div>`;
+}
+function guardarParteBolsillo(parteId){
+  const b = miBolsillo(); if(!b) return;
+  const nombre = document.getElementById('pt-nombre').value.trim();
+  if(!nombre){ toast('Ponle nombre a la parte', 'bad'); return; }
+  const emoji = document.getElementById('pt-emoji').value || '💰';
+  const plazo = document.getElementById('pt-plazo').value;
+  const riesgo = document.getElementById('pt-riesgo').value;
+  const tasa = parseFloat(document.getElementById('pt-tasa').value) || null;
+  if(parteId){
+    const p = b.partes.find(x=>x.id===parteId); if(!p) return;
+    p.nombre=nombre; p.emoji=emoji; p.plazo=plazo; p.riesgo=riesgo; p.tasa=tasa;
+    guardar(); closeModal(); renderBolsilloWallet(); toast('Parte actualizada ✏️');
+  } else {
+    const moneda = document.getElementById('pt-moneda').value;
+    const monto = round2(parseFloat(document.getElementById('pt-monto').value) || 0);
+    if(monto < 0){ toast('El monto no puede ser negativo','bad'); return; }
+    const p = { id:Date.now(), nombre, emoji, color:BOLSILLO_COLORES[b.partes.length % BOLSILLO_COLORES.length], moneda, monto, plazo, riesgo, tasa };
+    b.partes.push(p);
+    if(monto > 0) b.movimientos.push({ id:Date.now()+1, fecha:new Date().toISOString(), tipo:'deposito', monto, moneda, deNombre:null, aNombre:nombre });
+    guardar(); closeModal(); renderBolsilloWallet(); toast(`Parte "${nombre}" creada 💰`);
+  }
+}
+function eliminarParteBolsillo(parteId){
+  const b = miBolsillo(); if(!b) return;
+  const p = b.partes.find(x=>x.id===parteId); if(!p) return;
+  if(!confirm(`¿Eliminar "${p.nombre}"?${p.monto>0?` Su dinero (${fmtDinero(p.monto,p.moneda)}) pasará a Libre.`:''}`)) return;
+  if(p.monto > 0){
+    b.libre[p.moneda] = round2(saldoLibre(b,p.moneda) + p.monto);
+    b.movimientos.push({ id:Date.now(), fecha:new Date().toISOString(), tipo:'mover', monto:p.monto, moneda:p.moneda, deNombre:p.nombre, aNombre:'Libre' });
+  }
+  b.partes = b.partes.filter(x=>x.id!==parteId);
+  guardar(); closeModal(); renderBolsilloWallet();
+  toast('Parte eliminada · su dinero quedó en Libre 🛡️');
+}
+function abrirMovimientoBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const opciones = `<option value="libre:S/">🟢 Libre (S/)</option><option value="libre:USD">🟢 Libre ($)</option>` +
+    b.partes.map(p=>`<option value="${p.id}">${p.emoji||'💰'} ${p.nombre} (${p.moneda==='USD'?'$':'S/'})</option>`).join('');
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--gold); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-right-left"></i></div>
+      <h3 class="serif text-xl font-semibold">Movimiento</h3>
+    </div>
+    <div class="space-y-3">
+      <div><label class="flabel">Tipo</label>
+        <select id="mv-tipo" onchange="actualizarFormMovBolsillo()">
+          <option value="deposito">▲ Depositar — entra dinero nuevo</option>
+          <option value="retiro">▼ Retirar — sale dinero</option>
+          <option value="mover">⇄ Mover entre partes</option>
+        </select>
+      </div>
+      <div id="mv-wrap-origen" class="hidden"><label class="flabel">Desde</label><select id="mv-origen">${opciones}</select></div>
+      <div id="mv-wrap-destino"><label class="flabel">Hacia</label><select id="mv-destino">${opciones}</select></div>
+      <div><label class="flabel">Monto</label><input id="mv-monto" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="guardarMovimientoBolsillo()" class="btn btn-primary flex-1 py-3">Registrar</button>
+        <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cancelar</button>
+      </div>
+    </div>`;
+}
+function actualizarFormMovBolsillo(){
+  const t = document.getElementById('mv-tipo').value;
+  document.getElementById('mv-wrap-origen').classList.toggle('hidden', t==='deposito');
+  document.getElementById('mv-wrap-destino').classList.toggle('hidden', t==='retiro');
+}
+function refBolsillo(val){
+  const b = miBolsillo(); if(!b) return null;
+  if(val==='libre:S/') return { moneda:'S/', nombre:'Libre', get:()=>saldoLibre(b,'S/'), add:d=>{ b.libre['S/']=round2(saldoLibre(b,'S/')+d); } };
+  if(val==='libre:USD') return { moneda:'USD', nombre:'Libre', get:()=>saldoLibre(b,'USD'), add:d=>{ b.libre['USD']=round2(saldoLibre(b,'USD')+d); } };
+  const p = b.partes.find(x=>x.id===+val);
+  if(!p) return null;
+  return { moneda:p.moneda, nombre:p.nombre, get:()=>p.monto, add:d=>{ p.monto=round2(p.monto+d); } };
+}
+function guardarMovimientoBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const tipo = document.getElementById('mv-tipo').value;
+  const monto = round2(parseFloat(document.getElementById('mv-monto').value));
+  if(!monto || monto<=0){ toast('Ingresa un monto válido','bad'); return; }
+  let de=null, a=null;
+  if(tipo!=='deposito'){ de = refBolsillo(document.getElementById('mv-origen').value); if(!de){ toast('Elige el origen','bad'); return; } }
+  if(tipo!=='retiro'){ a = refBolsillo(document.getElementById('mv-destino').value); if(!a){ toast('Elige el destino','bad'); return; } }
+  if(tipo==='mover'){
+    if(document.getElementById('mv-origen').value===document.getElementById('mv-destino').value){ toast('Elige lugares distintos','bad'); return; }
+    if(de.moneda!==a.moneda){ toast('Origen y destino deben usar la misma moneda','bad'); return; }
+  }
+  if(de && de.get() < monto){ toast(`Saldo insuficiente en ${de.nombre} (tiene ${fmtDinero(de.get(),de.moneda)})`,'bad'); return; }
+  if(de) de.add(-monto);
+  if(a) a.add(monto);
+  const moneda = (a||de).moneda;
+  b.movimientos.push({ id:Date.now(), fecha:new Date().toISOString(), tipo, monto, moneda, deNombre:de?de.nombre:null, aNombre:a?a.nombre:null });
+  guardar(); closeModal(); renderBolsilloWallet();
+  const iconos = { deposito:'▲', retiro:'▼', mover:'⇄' };
+  toast(`${iconos[tipo]} ${fmtDinero(monto,moneda)} registrado ✅`);
+}
+function verHistorialBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const filas = b.movimientos.slice().reverse().slice(0,60).map(mv=>{
+    const est = ({ deposito:['▲','var(--good)'], retiro:['▼','var(--bad)'], mover:['⇄','var(--gold-soft)'] })[mv.tipo] || ['•','var(--ink-dim)'];
+    const ruta = mv.tipo==='deposito' ? `→ ${mv.aNombre||'Libre'}` : mv.tipo==='retiro' ? `desde ${mv.deNombre||'Libre'}` : `${mv.deNombre||'?'} → ${mv.aNombre||'?'}`;
+    const f = new Date(mv.fecha).toLocaleDateString('es-ES',{day:'numeric', month:'short'});
+    return `
+      <div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0 text-sm">
+        <span class="font-bold flex-shrink-0" style="color:${est[1]}">${est[0]}</span>
+        <span class="flex-1 min-w-0 truncate">${ruta}</span>
+        <span class="mono font-semibold flex-shrink-0">${fmtDinero(mv.monto, mv.moneda)}</span>
+        <span class="text-[11px] text-[var(--ink-faint)] flex-shrink-0">${f}</span>
+      </div>`;
+  }).join('');
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-3">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-clock-rotate-left"></i></div>
+      <h3 class="serif text-xl font-semibold">Historial</h3>
+    </div>
+    <div class="max-h-[55vh] overflow-y-auto scrollbar-thin pr-1 mb-4">${filas || `<p class="text-sm text-[var(--ink-faint)] py-3">Sin movimientos todavía.</p>`}</div>
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 text-sm">Cerrar</button>`;
+}
+function adminBolsillo(){
+  const claveAdmin = DB.config.pinApp || DB.config.pinHogar;
+  if(claveAdmin){
+    const v = prompt('Clave de administrador (la del candado de la app o de Gastos del hogar):');
+    if(v===null) return;
+    if(v!==claveAdmin){ toast('Clave incorrecta','bad'); return; }
+  }
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const lista = DB.config.bolsilloAutorizados;
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-2">
+      <div class="sec-badge" style="--glow:var(--gold); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-user-gear"></i></div>
+      <h3 class="serif text-xl font-semibold">Acceso a Mi bolsillo</h3>
+    </div>
+    <p class="text-sm text-[var(--ink-faint)] mb-4">Marca quiénes pueden tener su bolsillo personal. Con 🔑 reseteas la clave de alguien que la olvidó.</p>
+    <div class="space-y-2 mb-4">
+      ${DB.familia.map(mm=>`
+        <div class="flex items-center gap-2 bg-[var(--bg-soft)] rounded-xl px-3 py-2">
+          <input type="checkbox" class="adm-bolsillo" value="${mm.id}" ${(!Array.isArray(lista)||lista.includes(mm.id))?'checked':''} style="width:auto; accent-color:var(--sage)">
+          <span class="flex-1 text-sm">${mm.emoji} ${mm.nombre}</span>
+          ${DB.bolsillos[mm.id]?`
+            <button onclick="resetearClaveBolsillo(${mm.id})" class="icon-btn text-[var(--gold-soft)]" title="Resetear su clave"><i class="fas fa-key text-xs"></i></button>
+            <button onclick="borrarEspacioBolsillo(${mm.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Borrar su espacio"><i class="fas fa-trash text-xs"></i></button>
+          `:''}
+        </div>`).join('')}
+    </div>
+    <div class="flex gap-2">
+      <button onclick="guardarAutorizadosBolsillo()" class="btn btn-primary flex-1 py-3">Guardar</button>
+      <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
+    </div>`;
+}
+function guardarAutorizadosBolsillo(){
+  const ids = Array.from(document.querySelectorAll('.adm-bolsillo:checked')).map(x=>+x.value);
+  DB.config.bolsilloAutorizados = (ids.length === DB.familia.length) ? null : ids;
+  guardar(); closeModal();
+  if(panelActual==='bolsillo') renderBolsillo();
+  toast('Acceso actualizado 🔑');
+}
+function resetearClaveBolsillo(id){
+  const nueva = prompt(`Nueva clave para ${nombrePorId(id)} (mínimo 4 caracteres):`);
+  if(nueva===null) return;
+  if(nueva.trim().length<4){ toast('Mínimo 4 caracteres','bad'); return; }
+  DB.bolsillos[id].clave = nueva.trim();
+  guardar(); toast(`Clave de ${nombrePorId(id)} reseteada 🔑`);
+}
+function borrarEspacioBolsillo(id){
+  if(!confirm(`¿Borrar TODO el bolsillo de ${nombrePorId(id)}? Se pierde su capital, partes e historial.`)) return;
+  guardarSnapshot();
+  delete DB.bolsillos[id];
+  if(bolsilloActivo===id) bolsilloActivo=null;
+  guardar(); closeModal();
+  if(panelActual==='bolsillo') renderBolsillo();
+  toastDeshacer(`Bolsillo de ${nombrePorId(id)} borrado 🗑️`);
+}
+function cambiarClaveBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const actual = prompt('Tu clave actual:');
+  if(actual===null) return;
+  if(actual!==b.clave){ toast('Clave incorrecta','bad'); return; }
+  const nueva = prompt('Nueva clave (mínimo 4 caracteres):');
+  if(nueva===null) return;
+  if(nueva.trim().length<4){ toast('Mínimo 4 caracteres','bad'); return; }
+  b.clave = nueva.trim();
+  guardar(); toast('Clave actualizada 🔑');
+}
+function salirBolsillo(){ bolsilloActivo = null; renderBolsillo(); toast('Bolsillo bloqueado 🔒'); }
+function editarTcBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const v = prompt('Tipo de cambio referencial (S/ por 1 USD):', b.tc||3.75);
+  if(v===null) return;
+  const n = parseFloat(v);
+  if(isNaN(n)||n<=0){ toast('Valor inválido','bad'); return; }
+  b.tc = round2(n); guardar(); renderBolsilloWallet();
+  toast(`Tipo de cambio: S/ ${b.tc} por $1 💱`);
+}
+
 /* ---------- Recordatorios con Notification API ---------- */
 const REC_DIAS = { '1m':30, '1s':7, '3d':3, '1d':1 };
 function verificarRecordatorios(){
@@ -3063,6 +3480,7 @@ function verInformeEvento(id){
   await cargarEstado();
   if(!DB.config) DB.config = { pinHogar: null, pinApp: null };
   if(!DB.config.pinApp) DB.config.pinApp = null;
+  if(!DB.bolsillos) DB.bolsillos = {};
   verificarAppLock();
   actualizarIconoTema();
   const cerrados = autoCerrarEventos();
