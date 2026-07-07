@@ -3121,7 +3121,20 @@ function renderBolsilloWallet(){
     </div>`;
   }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes partes. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
 
-  body.innerHTML = `
+  const vacio = b.partes.length===0 && saldoLibre(b,'S/')===0 && saldoLibre(b,'USD')===0;
+  const onboarding = vacio ? `
+    <div class="card p-5 mb-4" style="border-color:var(--sage); box-shadow:0 0 0 1px var(--sage), var(--shadow-md);">
+      <div class="flex items-center gap-2 mb-2"><span class="text-2xl">👋</span><h3 class="serif text-lg font-semibold">Empieza aquí</h3></div>
+      <p class="text-sm text-[var(--ink-dim)] mb-3">Este es <b>tu</b> espacio de dinero personal. Ingresas cuánto tienes y lo divides en partes con un propósito (ahorro, inversión, gastos, BTC…) para ver cómo crece.</p>
+      <div class="space-y-2 mb-4">
+        <div class="flex items-center gap-3 text-sm"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:var(--sage); color:#fff">1</span> Dinos cuánto dinero quieres organizar.</div>
+        <div class="flex items-center gap-3 text-sm"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:var(--sage); color:#fff">2</span> Elige cómo repartirlo (o déjalo junto por ahora).</div>
+      </div>
+      <button onclick="empezarBolsillo()" class="btn btn-primary w-full py-3"><i class="fas fa-play"></i> Empezar — ingresar y organizar mi dinero</button>
+      <p class="text-[11px] text-[var(--ink-faint)] text-center mt-2">¿Prefieres hacerlo tú? Usa los botones de abajo.</p>
+    </div>` : '';
+
+  body.innerHTML = onboarding + `
     <div class="card p-5 mb-4">
       <div class="flex items-center justify-between gap-2">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Capital total · ${m.emoji} ${m.nombre}</p>
@@ -3427,6 +3440,7 @@ function editarTcBolsillo(){
   b.tc = round2(n); guardar(); renderBolsilloWallet();
   toast(`Tipo de cambio: S/ ${b.tc} por $1 💱`);
 }
+function empezarBolsillo(){ abrirRepartoBolsillo(); }
 function abrirRepartoBolsillo(){
   const b = miBolsillo(); if(!b) return;
   const back = document.getElementById('modalBackdrop');
@@ -3445,6 +3459,7 @@ function abrirRepartoBolsillo(){
         </div>
         <div class="flex-1"><label class="flabel">Capital a repartir</label><input id="rp-capital" type="number" min="0" value="${saldoLibre(b,'S/')||''}" oninput="actualizarPreviewReparto()" placeholder="Ej: 1000"></div>
       </div>
+      <label class="flex items-start gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-2.5" style="border:1px solid var(--line)"><input type="checkbox" id="rp-nuevo" ${(saldoLibre(b,'S/')===0&&saldoLibre(b,'USD')===0)?'checked':''} onchange="actualizarPreviewReparto()" style="width:auto; accent-color:var(--sage); margin-top:.15rem"> <span>Es dinero <b>nuevo</b> — ingrésalo ahora <span class="opt">(si ya lo tenías en Libre, desmarca)</span></span></label>
       <button type="button" onclick="usarLibreReparto()" class="text-xs text-[var(--sage-soft)] hover:text-[var(--sage)]"><i class="fas fa-wand-magic-sparkles"></i> Usar todo mi saldo libre</button>
       <div><label class="flabel">Plantilla</label>
         <select id="rp-plantilla" onchange="actualizarPreviewReparto()">
@@ -3481,6 +3496,7 @@ function usarLibreReparto(){
   const b = miBolsillo(); if(!b) return;
   const mon = document.getElementById('rp-moneda').value;
   document.getElementById('rp-capital').value = saldoLibre(b, mon) || 0;
+  document.getElementById('rp-nuevo').checked = false;
   actualizarPreviewReparto();
 }
 function actualizarPreviewReparto(){
@@ -3488,6 +3504,7 @@ function actualizarPreviewReparto(){
   const plant = PLANTILLAS_REPARTO[document.getElementById('rp-plantilla').value];
   document.getElementById('rp-n-wrap').style.display = plant.usaN ? '' : 'none';
   const { moneda, cap, items } = calcularReparto();
+  const nuevo = document.getElementById('rp-nuevo').checked;
   const libre = saldoLibre(b, moneda);
   const prev = document.getElementById('rp-preview');
   prev.innerHTML = (cap>0 ? items.map(it=>{
@@ -3496,15 +3513,21 @@ function actualizarPreviewReparto(){
       <span>${it.emoji}</span><span class="flex-1 min-w-0 truncate">${it.nombre} <span class="text-[10px]" style="color:${r.col}">${r.txt}</span></span>
       <span class="mono font-semibold">${fmtDinero(it.monto,moneda)}</span></div>`;
   }).join('') : `<p class="text-sm text-[var(--ink-faint)]">Ingresa un capital para ver el reparto.</p>`)
-   + (cap>libre ? `<p class="text-[11px] text-[var(--bad)] mt-1"><i class="fas fa-triangle-exclamation"></i> Simulación: en Libre solo tienes ${fmtDinero(libre,moneda)}. No se puede aplicar con este monto.</p>` : '');
+   + (cap>0 && nuevo ? `<p class="text-[11px] text-[var(--sage-soft)] mt-1"><i class="fas fa-circle-check"></i> Se ingresará ${fmtDinero(cap,moneda)} y se repartirá al instante.</p>` : '')
+   + (cap>libre && !nuevo ? `<p class="text-[11px] text-[var(--bad)] mt-1"><i class="fas fa-triangle-exclamation"></i> Solo estás simulando: en Libre tienes ${fmtDinero(libre,moneda)}. Marca "Es dinero nuevo" para ingresarlo, o baja el monto.</p>` : '');
 }
 function aplicarReparto(){
   const b = miBolsillo(); if(!b) return;
   const { moneda, cap, items } = calcularReparto();
   if(cap<=0){ toast('Ingresa un capital','bad'); return; }
-  const libre = saldoLibre(b, moneda);
-  if(cap > libre){ toast(`Solo tienes ${fmtDinero(libre,moneda)} en Libre. Deposita más o baja el monto.`,'bad'); return; }
+  const nuevo = document.getElementById('rp-nuevo').checked;
   guardarSnapshot();
+  if(nuevo){
+    b.libre[moneda] = round2(saldoLibre(b,moneda) + cap);
+    b.movimientos.push({ id:Date.now()+9000, fecha:new Date().toISOString(), tipo:'deposito', monto:cap, moneda, deNombre:null, aNombre:'Libre' });
+  }
+  const libre = saldoLibre(b, moneda);
+  if(cap > libre){ _snapshotUndo=null; toast(`Solo tienes ${fmtDinero(libre,moneda)} en Libre. Marca "Es dinero nuevo" o baja el monto.`,'bad'); return; }
   b.libre[moneda] = round2(libre - cap);
   const base = b.partes.length;
   items.forEach((it,i)=>{
