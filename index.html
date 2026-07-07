@@ -1159,6 +1159,7 @@ function completarEvento(id){
 function autoCerrarEventos(){
   let cerrados = 0;
   DB.eventos.forEach(e=>{
+    if(e.metaParte) return; // los eventos-meta del bolsillo no se cierran ni generan informe
     if(!e.completado && diasRestantes(e.fecha) < 0){ cerrarEvento(e); cerrados++; }
   });
   if(cerrados){ guardar(); }
@@ -2345,6 +2346,7 @@ let sesionRealizado = [];
 
 function mostrarPanel(nombre, fromHistory){
   const cambioDePanel = nombre !== panelActual;
+  if(nombre!=='bolsillo' && bolsilloActivo!==null){ bolsilloActivo = null; } // privacidad: se bloquea al salir
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('panel-activa'));
   const el = document.getElementById('panel-'+nombre);
   if(el) el.classList.add('panel-activa');
@@ -2944,6 +2946,63 @@ function miembrosBolsillo(){
 function miBolsillo(){ return bolsilloActivo!==null ? DB.bolsillos[bolsilloActivo] : null; }
 function saldoLibre(b, mon){ return round2((b.libre && b.libre[mon]) || 0); }
 
+/* --- Metas: una parte se vuelve meta si tiene objetivo --- */
+function proyeccionParte(p){
+  if(!p.objetivo || p.objetivo<=0) return null;
+  const pct = Math.min(1, p.monto/p.objetivo);
+  const falta = Math.max(0, round2(p.objetivo - p.monto));
+  if(falta<=0) return { pct:1, falta:0, completa:true, meses:0, fecha:null };
+  let meses=null, fecha=null;
+  if(p.aporteMensual && p.aporteMensual>0){
+    meses = Math.ceil(falta / p.aporteMensual);
+    fecha = new Date(); fecha.setDate(1); fecha.setMonth(fecha.getMonth()+meses);
+  }
+  return { pct, falta, completa:false, meses, fecha };
+}
+function sincronizarEventoMeta(p){
+  if(p.eventoId){ DB.eventos = DB.eventos.filter(e=>e.id!==p.eventoId); p.eventoId=null; }
+  if(!p.enCalendario || !p.objetivo) return;
+  const proy = proyeccionParte(p);
+  if(!proy || proy.completa || !proy.fecha) return;
+  const nombre = (DB.familia.find(f=>f.id===bolsilloActivo)||{}).nombre || '';
+  const ev = { id:Date.now()+Math.floor(Math.random()*10000), titulo:`${p.nombre} — ${nombre}`, fecha:proy.fecha.toISOString().split('T')[0],
+    emoji:'🎯', completado:false, presupuesto:null, tareas:[], compras:[], recordatorios:['1s'], metaParte:p.id };
+  DB.eventos.push(ev);
+  p.eventoId = ev.id;
+}
+function resyncMetasCalendario(){
+  const b = miBolsillo(); if(!b) return;
+  b.partes.forEach(p=>{ if(p.enCalendario && p.objetivo) sincronizarEventoMeta(p); });
+}
+/* --- Reparto de capital (plantillas + simulador) --- */
+function dividirCapital(cap, pesos){
+  const totalPeso = pesos.reduce((s,w)=>s+w,0) || 1;
+  const capCent = Math.round(cap*100);
+  const montos = pesos.map(w=> Math.floor(capCent * w / totalPeso));
+  let resto = capCent - montos.reduce((s,m)=>s+m,0);
+  for(let i=0; resto>0 && montos.length; i=(i+1)%montos.length){ montos[i]++; resto--; }
+  return montos.map(c=>c/100);
+}
+const PLANTILLAS_REPARTO = {
+  iguales:     { nombre:'Partes iguales', desc:'Divide en N partes iguales', usaN:true },
+  '503020':    { nombre:'50 / 30 / 20', desc:'Necesidades · Gustos · Ahorro', partes:[
+    {nombre:'Necesidades', emoji:'🏠', pct:50, plazo:'corto', riesgo:'bajo'},
+    {nombre:'Gustos', emoji:'🎉', pct:30, plazo:'corto', riesgo:'bajo'},
+    {nombre:'Ahorro / inversión', emoji:'💰', pct:20, plazo:'mediano', riesgo:'medio'} ]},
+  conservador: { nombre:'Conservador', desc:'Prioriza seguridad', partes:[
+    {nombre:'Ahorro seguro', emoji:'🏦', pct:70, plazo:'mediano', riesgo:'bajo'},
+    {nombre:'Inversión moderada', emoji:'📈', pct:20, plazo:'mediano', riesgo:'medio'},
+    {nombre:'Alto riesgo (BTC)', emoji:'🚀', pct:10, plazo:'largo', riesgo:'alto'} ]},
+  moderado:    { nombre:'Moderado', desc:'Equilibrio riesgo/beneficio', partes:[
+    {nombre:'Ahorro seguro', emoji:'🏦', pct:40, plazo:'mediano', riesgo:'bajo'},
+    {nombre:'Inversión', emoji:'📈', pct:40, plazo:'mediano', riesgo:'medio'},
+    {nombre:'Alto riesgo (BTC)', emoji:'🚀', pct:20, plazo:'largo', riesgo:'alto'} ]},
+  agresivo:    { nombre:'Agresivo', desc:'Busca máximo crecimiento', partes:[
+    {nombre:'Ahorro', emoji:'🏦', pct:20, plazo:'corto', riesgo:'bajo'},
+    {nombre:'Inversión', emoji:'📈', pct:30, plazo:'mediano', riesgo:'medio'},
+    {nombre:'Alto riesgo (BTC/emprender)', emoji:'🚀', pct:50, plazo:'largo', riesgo:'alto'} ]},
+};
+
 function renderBolsillo(){
   if(!DB.bolsillos) DB.bolsillos = {};
   const acc = document.getElementById('bolsilloAcciones');
@@ -3033,15 +3092,32 @@ function renderBolsilloWallet(){
 
   const filas = b.partes.length ? b.partes.map(p=>{
     const r = BOLSILLO_RIESGOS[p.riesgo] || BOLSILLO_RIESGOS.medio;
+    const proy = proyeccionParte(p);
+    let metaHTML = '';
+    if(proy){
+      const cuando = proy.completa ? '¡Meta cumplida! 🎉' : proy.fecha ? ('≈ '+proy.fecha.toLocaleDateString('es-ES',{month:'short',year:'numeric'})+(p.enCalendario?' 📅':'')) : 'define aporte mensual';
+      metaHTML = `
+        <div class="mt-2">
+          <div class="flex justify-between items-center text-[10px] mb-1">
+            <span style="color:var(--gold-soft)">🎯 ${fmtDinero(p.monto,p.moneda)} / ${fmtDinero(p.objetivo,p.moneda)}</span>
+            <span class="${proy.completa?'text-[var(--good)]':'text-[var(--ink-faint)]'}">${cuando}</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full" style="background:var(--line)"><div class="h-1.5 rounded-full" style="width:${(proy.pct*100).toFixed(0)}%; background:${proy.completa?'var(--good)':'var(--gold)'}"></div></div>
+        </div>`;
+    }
     return `
-    <div class="card p-3.5 flex items-center gap-3 mb-2">
-      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background:${p.color}22; box-shadow:inset 0 0 0 1px ${p.color};">${p.emoji||'💰'}</div>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold truncate">${p.nombre}</p>
-        <p class="text-[11px] text-[var(--ink-faint)]">${BOLSILLO_PLAZOS[p.plazo]||''} · <span style="color:${r.col}">${r.txt}</span>${p.tasa?` · ${p.tasa}% anual`:''}</p>
+    <div class="card p-3.5 mb-2">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background:${p.color}22; box-shadow:inset 0 0 0 1px ${p.color};">${p.emoji||'💰'}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate">${p.nombre}${p.objetivo?' <span style="color:var(--gold-soft)">🎯</span>':''}</p>
+          <p class="text-[11px] text-[var(--ink-faint)]">${BOLSILLO_PLAZOS[p.plazo]||''} · <span style="color:${r.col}">${r.txt}</span>${p.tasa?` · ${p.tasa}% anual`:''}</p>
+          ${p.tasa && p.monto>0 ? `<p class="text-[10px]" style="color:var(--sage-soft)">📈 1 año: ${fmtDinero(round2(p.monto*(1+p.tasa/100)), p.moneda)} · 5 años: ${fmtDinero(round2(p.monto*Math.pow(1+p.tasa/100,5)), p.moneda)}</p>` : ''}
+        </div>
+        <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
+        <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar parte"><i class="fas fa-pen text-xs"></i></button>
       </div>
-      <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
-      <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar parte"><i class="fas fa-pen text-xs"></i></button>
+      ${metaHTML}
     </div>`;
   }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes partes. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
 
@@ -3072,7 +3148,8 @@ function renderBolsilloWallet(){
       <button onclick="abrirFormParte(null)" class="btn btn-primary flex-1 py-3 text-sm"><i class="fas fa-plus"></i> Nueva parte</button>
       <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold flex-1 py-3 text-sm"><i class="fas fa-right-left"></i> Movimiento</button>
       <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
-    </div>`;
+    </div>
+    <button onclick="abrirRepartoBolsillo()" class="btn btn-ghost w-full py-3 text-sm mt-2 flex items-center justify-center gap-2"><i class="fas fa-chart-pie"></i> Repartir / simular capital</button>`;
 }
 function abrirFormParte(parteId){
   const b = miBolsillo(); if(!b) return;
@@ -3112,6 +3189,15 @@ function abrirFormParte(parteId){
         </div>
       </div>
       <div><label class="flabel">Tasa de interés anual % <span class="opt">(opcional, para ahorros)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
+      <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-2" style="border:1px solid var(--line)">
+        <p class="flabel" style="margin-bottom:0">🎯 Convertir en meta <span class="opt">(opcional)</span></p>
+        <div class="flex gap-3">
+          <div class="flex-1"><label class="flabel">Objetivo</label><input id="pt-objetivo" type="number" min="0" value="${p&&p.objetivo?p.objetivo:''}" placeholder="Ej: 2500"></div>
+          <div class="flex-1"><label class="flabel">Aporte mensual</label><input id="pt-aporte" type="number" min="0" value="${p&&p.aporteMensual?p.aporteMensual:''}" placeholder="Ej: 200"></div>
+        </div>
+        <label class="flex items-start gap-2 text-sm cursor-pointer"><input type="checkbox" id="pt-cal" ${p&&p.enCalendario?'checked':''} style="width:auto; accent-color:var(--sage); margin-top:.15rem"> <span>📅 Mostrar la fecha estimada en el calendario familiar</span></label>
+        <p class="text-[11px] text-[var(--ink-faint)]">La familia solo verá el nombre de la meta y tu nombre en la fecha estimada. Tus montos siguen privados.</p>
+      </div>
       <div class="flex gap-2 mt-2">
         <button onclick="guardarParteBolsillo(${parteId||'null'})" class="btn btn-primary flex-1 py-3">${p?'Guardar cambios':'Crear parte'}</button>
         ${p?`<button onclick="eliminarParteBolsillo(${p.id})" class="btn btn-ghost px-4 py-3" title="Eliminar (su dinero pasa a Libre)"><i class="fas fa-trash text-[var(--bad)]"></i></button>`:''}
@@ -3127,17 +3213,23 @@ function guardarParteBolsillo(parteId){
   const plazo = document.getElementById('pt-plazo').value;
   const riesgo = document.getElementById('pt-riesgo').value;
   const tasa = parseFloat(document.getElementById('pt-tasa').value) || null;
+  const objetivo = round2(parseFloat(document.getElementById('pt-objetivo').value)) || null;
+  const aporteMensual = round2(parseFloat(document.getElementById('pt-aporte').value)) || null;
+  const enCalendario = document.getElementById('pt-cal').checked;
   if(parteId){
     const p = b.partes.find(x=>x.id===parteId); if(!p) return;
     p.nombre=nombre; p.emoji=emoji; p.plazo=plazo; p.riesgo=riesgo; p.tasa=tasa;
+    p.objetivo=objetivo; p.aporteMensual=aporteMensual; p.enCalendario=objetivo?enCalendario:false;
+    sincronizarEventoMeta(p);
     guardar(); closeModal(); renderBolsilloWallet(); toast('Parte actualizada ✏️');
   } else {
     const moneda = document.getElementById('pt-moneda').value;
     const monto = round2(parseFloat(document.getElementById('pt-monto').value) || 0);
     if(monto < 0){ toast('El monto no puede ser negativo','bad'); return; }
-    const p = { id:Date.now(), nombre, emoji, color:BOLSILLO_COLORES[b.partes.length % BOLSILLO_COLORES.length], moneda, monto, plazo, riesgo, tasa };
+    const p = { id:Date.now(), nombre, emoji, color:BOLSILLO_COLORES[b.partes.length % BOLSILLO_COLORES.length], moneda, monto, plazo, riesgo, tasa, objetivo, aporteMensual, enCalendario:objetivo?enCalendario:false };
     b.partes.push(p);
     if(monto > 0) b.movimientos.push({ id:Date.now()+1, fecha:new Date().toISOString(), tipo:'deposito', monto, moneda, deNombre:null, aNombre:nombre });
+    sincronizarEventoMeta(p);
     guardar(); closeModal(); renderBolsilloWallet(); toast(`Parte "${nombre}" creada 💰`);
   }
 }
@@ -3149,6 +3241,7 @@ function eliminarParteBolsillo(parteId){
     b.libre[p.moneda] = round2(saldoLibre(b,p.moneda) + p.monto);
     b.movimientos.push({ id:Date.now(), fecha:new Date().toISOString(), tipo:'mover', monto:p.monto, moneda:p.moneda, deNombre:p.nombre, aNombre:'Libre' });
   }
+  if(p.eventoId){ DB.eventos = DB.eventos.filter(e=>e.id!==p.eventoId); }
   b.partes = b.partes.filter(x=>x.id!==parteId);
   guardar(); closeModal(); renderBolsilloWallet();
   toast('Parte eliminada · su dinero quedó en Libre 🛡️');
@@ -3213,6 +3306,7 @@ function guardarMovimientoBolsillo(){
   if(a) a.add(monto);
   const moneda = (a||de).moneda;
   b.movimientos.push({ id:Date.now(), fecha:new Date().toISOString(), tipo, monto, moneda, deNombre:de?de.nombre:null, aNombre:a?a.nombre:null });
+  resyncMetasCalendario();
   guardar(); closeModal(); renderBolsilloWallet();
   const iconos = { deposito:'▲', retiro:'▼', mover:'⇄' };
   toast(`${iconos[tipo]} ${fmtDinero(monto,moneda)} registrado ✅`);
@@ -3320,6 +3414,93 @@ function editarTcBolsillo(){
   if(isNaN(n)||n<=0){ toast('Valor inválido','bad'); return; }
   b.tc = round2(n); guardar(); renderBolsilloWallet();
   toast(`Tipo de cambio: S/ ${b.tc} por $1 💱`);
+}
+function abrirRepartoBolsillo(){
+  const b = miBolsillo(); if(!b) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-chart-pie"></i></div>
+      <h3 class="serif text-xl font-semibold">Repartir / simular</h3>
+    </div>
+    <div class="space-y-3">
+      <div class="flex gap-3">
+        <div style="width:110px" class="flex-shrink-0"><label class="flabel">Moneda</label>
+          <select id="rp-moneda" onchange="actualizarPreviewReparto()"><option value="S/">S/ Soles</option><option value="USD">$ Dólares</option></select>
+        </div>
+        <div class="flex-1"><label class="flabel">Capital a repartir</label><input id="rp-capital" type="number" min="0" value="${saldoLibre(b,'S/')||''}" oninput="actualizarPreviewReparto()" placeholder="Ej: 1000"></div>
+      </div>
+      <button type="button" onclick="usarLibreReparto()" class="text-xs text-[var(--sage-soft)] hover:text-[var(--sage)]"><i class="fas fa-wand-magic-sparkles"></i> Usar todo mi saldo libre</button>
+      <div><label class="flabel">Plantilla</label>
+        <select id="rp-plantilla" onchange="actualizarPreviewReparto()">
+          ${Object.entries(PLANTILLAS_REPARTO).map(([k,v])=>`<option value="${k}">${v.nombre} — ${v.desc}</option>`).join('')}
+        </select>
+      </div>
+      <div id="rp-n-wrap"><label class="flabel">¿En cuántas partes?</label><input id="rp-n" type="number" min="2" max="20" value="10" oninput="actualizarPreviewReparto()"></div>
+      <div><p class="flabel">Vista previa</p><div id="rp-preview" class="space-y-1.5"></div></div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="aplicarReparto()" class="btn btn-primary flex-1 py-3"><i class="fas fa-check"></i> Aplicar a mi dinero</button>
+        <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
+      </div>
+      <p class="text-[11px] text-[var(--ink-faint)] text-center">Escribe cualquier monto para <b>simular</b>. Para aplicarlo de verdad necesitas tenerlo en tu saldo <b>Libre</b>.</p>
+    </div>`;
+  actualizarPreviewReparto();
+}
+function calcularReparto(){
+  const moneda = document.getElementById('rp-moneda').value;
+  const cap = round2(parseFloat(document.getElementById('rp-capital').value)||0);
+  const key = document.getElementById('rp-plantilla').value;
+  const plant = PLANTILLAS_REPARTO[key];
+  let items;
+  if(plant.usaN){
+    const n = Math.max(2, Math.min(20, parseInt(document.getElementById('rp-n').value)||10));
+    const montos = dividirCapital(cap, Array(n).fill(1));
+    items = montos.map((mm,i)=>({ nombre:`Parte ${i+1}`, emoji:'💰', monto:mm, plazo:'mediano', riesgo:'medio' }));
+  } else {
+    const montos = dividirCapital(cap, plant.partes.map(pp=>pp.pct));
+    items = plant.partes.map((pp,i)=>({ nombre:pp.nombre, emoji:pp.emoji, monto:montos[i], plazo:pp.plazo, riesgo:pp.riesgo }));
+  }
+  return { moneda, cap, items };
+}
+function usarLibreReparto(){
+  const b = miBolsillo(); if(!b) return;
+  const mon = document.getElementById('rp-moneda').value;
+  document.getElementById('rp-capital').value = saldoLibre(b, mon) || 0;
+  actualizarPreviewReparto();
+}
+function actualizarPreviewReparto(){
+  const b = miBolsillo(); if(!b) return;
+  const plant = PLANTILLAS_REPARTO[document.getElementById('rp-plantilla').value];
+  document.getElementById('rp-n-wrap').style.display = plant.usaN ? '' : 'none';
+  const { moneda, cap, items } = calcularReparto();
+  const libre = saldoLibre(b, moneda);
+  const prev = document.getElementById('rp-preview');
+  prev.innerHTML = (cap>0 ? items.map(it=>{
+    const r = BOLSILLO_RIESGOS[it.riesgo]||BOLSILLO_RIESGOS.medio;
+    return `<div class="flex items-center gap-2 text-sm bg-[var(--bg-soft)] rounded-lg px-3 py-2" style="border:1px solid var(--line)">
+      <span>${it.emoji}</span><span class="flex-1 min-w-0 truncate">${it.nombre} <span class="text-[10px]" style="color:${r.col}">${r.txt}</span></span>
+      <span class="mono font-semibold">${fmtDinero(it.monto,moneda)}</span></div>`;
+  }).join('') : `<p class="text-sm text-[var(--ink-faint)]">Ingresa un capital para ver el reparto.</p>`)
+   + (cap>libre ? `<p class="text-[11px] text-[var(--bad)] mt-1"><i class="fas fa-triangle-exclamation"></i> Simulación: en Libre solo tienes ${fmtDinero(libre,moneda)}. No se puede aplicar con este monto.</p>` : '');
+}
+function aplicarReparto(){
+  const b = miBolsillo(); if(!b) return;
+  const { moneda, cap, items } = calcularReparto();
+  if(cap<=0){ toast('Ingresa un capital','bad'); return; }
+  const libre = saldoLibre(b, moneda);
+  if(cap > libre){ toast(`Solo tienes ${fmtDinero(libre,moneda)} en Libre. Deposita más o baja el monto.`,'bad'); return; }
+  guardarSnapshot();
+  b.libre[moneda] = round2(libre - cap);
+  const base = b.partes.length;
+  items.forEach((it,i)=>{
+    b.partes.push({ id:Date.now()+i, nombre:it.nombre, emoji:it.emoji, color:BOLSILLO_COLORES[(base+i)%BOLSILLO_COLORES.length], moneda, monto:it.monto, plazo:it.plazo, riesgo:it.riesgo, tasa:null });
+    b.movimientos.push({ id:Date.now()+2000+i, fecha:new Date().toISOString(), tipo:'mover', monto:it.monto, moneda, deNombre:'Libre', aNombre:it.nombre });
+  });
+  guardar(); closeModal(); renderBolsilloWallet();
+  toastDeshacer(`Capital repartido en ${items.length} partes ✅`);
 }
 
 /* ---------- Recordatorios con Notification API ---------- */
