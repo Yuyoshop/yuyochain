@@ -2973,6 +2973,17 @@ function precioBTCenMoneda(moneda, b){
   const tc = (b && b.tc) || 3.75;
   return moneda==='USD' ? btcPrecio.usd : round2(btcPrecio.usd*tc);
 }
+function minutosDesde(ts){ return Math.max(0, Math.round((Date.now()-ts)/60000)); }
+function refrescarPrecioBTCManual(){
+  actualizarPrecioBTC(true).then(precio=>{
+    if(precio){
+      const b = miBolsillo();
+      if(b){ let cambio=false; b.partes.forEach(p=>{ if(p.btc && !p.btcPrecioEntrada){ p.btcPrecioEntrada = precioBTCenMoneda(p.moneda,b); cambio=true; } }); if(cambio) guardar(); }
+      if(panelActual==='bolsillo') renderBolsilloWallet();
+      toast(`Precio BTC actualizado: ${fmtDinero(precio,'USD')} 🟠`);
+    } else toast('No se pudo consultar el precio ahora. Se sigue usando el último conocido.','bad');
+  });
+}
 function asegurarPrecioBTCyRefrescar(){
   const b = miBolsillo(); if(!b) return;
   if(!b.partes.some(p=>p.btc)) return;
@@ -2987,12 +2998,14 @@ function asegurarPrecioBTCyRefrescar(){
 }
 function btcLineaHTML(p, b){
   const precioActual = precioBTCenMoneda(p.moneda, b);
-  if(!precioActual) return `<p class="text-[10px] text-[var(--ink-faint)]">🟠 Bitcoin: obteniendo precio en vivo…</p>`;
-  if(!p.btcPrecioEntrada) return `<p class="text-[10px] text-[var(--gold-soft)]">🟠 Bitcoin: BTC ≈ ${fmtDinero(precioActual,p.moneda)} hoy</p>`;
+  const precioUnidad = `<span class="text-[var(--ink-faint)]">· 1 BTC = ${precioActual?fmtDinero(precioActual,p.moneda):'…'}</span>`;
+  if(!precioActual) return `<p class="text-[10px] text-[var(--ink-faint)]">🟠 Vinculada a Bitcoin: obteniendo precio en vivo…</p>`;
+  if(!p.btcPrecioEntrada) return `<p class="text-[10px] text-[var(--gold-soft)]">🟠 Vinculada a Bitcoin ${precioUnidad}</p>`;
   const valorActual = round2(p.monto * (precioActual/p.btcPrecioEntrada));
   const gananciaPct = round2((precioActual/p.btcPrecioEntrada - 1)*100);
   const sube = gananciaPct >= 0;
-  return `<p class="text-[10px]" style="color:${sube?'var(--good)':'var(--bad)'}">🟠 Bitcoin: vale hoy ≈ ${fmtDinero(valorActual,p.moneda)} (${sube?'▲':'▼'} ${Math.abs(gananciaPct)}%) <span class="text-[var(--ink-faint)]">· estimado, no afecta tu saldo real</span></p>`;
+  return `<p class="text-[10px]" style="color:${sube?'var(--good)':'var(--bad)'}">🟠 Tu inversión vale hoy ≈ ${fmtDinero(valorActual,p.moneda)} (${sube?'▲':'▼'} ${Math.abs(gananciaPct)}% desde que la vinculaste) ${precioUnidad}</p>
+    <p class="text-[9px] text-[var(--ink-faint)]">Estimado, no afecta tu saldo real.</p>`;
 }
 
 /* --- Racha de constancia: meses consecutivos con al menos un depósito --- */
@@ -3221,6 +3234,7 @@ function renderBolsilloWallet(){
         ${seg.map(s=>`<span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${s.col}"></span>${s.nom}</span>`).join('')}
       </div>` : `<p class="text-sm text-[var(--ink-faint)]">Sin dinero todavía. Usa <b>Movimiento → Depositar</b> para ingresar tu primer capital.</p>`}
       <p class="text-[10px] text-[var(--ink-faint)] mt-3">TC referencial: S/ ${tc} por $1 · <button onclick="editarTcBolsillo()" class="underline hover:text-[var(--gold-soft)]">cambiar</button></p>
+      ${b.partes.some(p=>p.btc) ? `<p class="text-[10px] mt-1" style="color:var(--gold-soft)">🟠 Precio BTC: ${btcPrecio.usd?fmtDinero(precioBTCenMoneda('USD',b),'USD'):'…'} ${btcPrecio.ts?'· hace '+minutosDesde(btcPrecio.ts)+' min':''} · <button onclick="refrescarPrecioBTCManual()" class="underline hover:text-[var(--gold)]">actualizar ahora</button></p>` : ''}
     </div>
 
     <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">Mis metas${b.partes.length?` · ${b.partes.length}`:''}</p>
