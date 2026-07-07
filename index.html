@@ -2946,6 +2946,67 @@ function miembrosBolsillo(){
 function miBolsillo(){ return bolsilloActivo!==null ? DB.bolsillos[bolsilloActivo] : null; }
 function saldoLibre(b, mon){ return round2((b.libre && b.libre[mon]) || 0); }
 
+/* --- Precio de Bitcoin en vivo (CoinGecko, solo lectura) --- */
+let btcPrecio = { usd:null, ts:0 };
+let btcFetchEnCurso = false;
+(function cargarBtcCache(){
+  try{ const c = localStorage.getItem('yc_btc_precio'); if(c) btcPrecio = JSON.parse(c); }catch(e){}
+})();
+async function actualizarPrecioBTC(forzar){
+  const ahora = Date.now();
+  if(!forzar && btcPrecio.usd && (ahora-btcPrecio.ts) < 5*60*1000) return btcPrecio.usd;
+  if(btcFetchEnCurso) return btcPrecio.usd;
+  btcFetchEnCurso = true;
+  try{
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+    const j = await res.json();
+    if(j && j.bitcoin && j.bitcoin.usd){
+      btcPrecio = { usd:j.bitcoin.usd, ts:ahora };
+      try{ localStorage.setItem('yc_btc_precio', JSON.stringify(btcPrecio)); }catch(e){}
+    }
+  }catch(e){ /* sin internet o API caída: se usa el último precio conocido (btcPrecio ya cargado del caché) */ }
+  btcFetchEnCurso = false;
+  return btcPrecio.usd;
+}
+function precioBTCenMoneda(moneda, b){
+  if(!btcPrecio.usd) return null;
+  const tc = (b && b.tc) || 3.75;
+  return moneda==='USD' ? btcPrecio.usd : round2(btcPrecio.usd*tc);
+}
+function asegurarPrecioBTCyRefrescar(){
+  const b = miBolsillo(); if(!b) return;
+  if(!b.partes.some(p=>p.btc)) return;
+  const precioAntes = btcPrecio.usd;
+  actualizarPrecioBTC().then(()=>{
+    let cambiado = btcPrecio.usd !== precioAntes;
+    if(btcPrecio.usd){
+      b.partes.forEach(p=>{ if(p.btc && !p.btcPrecioEntrada){ p.btcPrecioEntrada = precioBTCenMoneda(p.moneda,b); cambiado = true; } });
+    }
+    if(cambiado){ guardar(); if(panelActual==='bolsillo' && bolsilloActivo!==null) renderBolsilloWallet(); }
+  });
+}
+function btcLineaHTML(p, b){
+  const precioActual = precioBTCenMoneda(p.moneda, b);
+  if(!precioActual) return `<p class="text-[10px] text-[var(--ink-faint)]">🟠 Bitcoin: obteniendo precio en vivo…</p>`;
+  if(!p.btcPrecioEntrada) return `<p class="text-[10px] text-[var(--gold-soft)]">🟠 Bitcoin: BTC ≈ ${fmtDinero(precioActual,p.moneda)} hoy</p>`;
+  const valorActual = round2(p.monto * (precioActual/p.btcPrecioEntrada));
+  const gananciaPct = round2((precioActual/p.btcPrecioEntrada - 1)*100);
+  const sube = gananciaPct >= 0;
+  return `<p class="text-[10px]" style="color:${sube?'var(--good)':'var(--bad)'}">🟠 Bitcoin: vale hoy ≈ ${fmtDinero(valorActual,p.moneda)} (${sube?'▲':'▼'} ${Math.abs(gananciaPct)}%) <span class="text-[var(--ink-faint)]">· estimado, no afecta tu saldo real</span></p>`;
+}
+
+/* --- Racha de constancia: meses consecutivos con al menos un depósito --- */
+function calcularRachaBolsillo(b){
+  const meses = new Set(b.movimientos.filter(mv=>mv.tipo==='deposito').map(mv=>mv.fecha.slice(0,7)));
+  const hoy = new Date();
+  const claveMes = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const esteMes = meses.has(claveMes(hoy));
+  const cursor = new Date(hoy.getFullYear(), hoy.getMonth() - (esteMes?0:1), 1);
+  let racha = 0;
+  while(meses.has(claveMes(cursor))){ racha++; cursor.setMonth(cursor.getMonth()-1); }
+  return { racha, esteMes };
+}
+
 /* --- Metas: una parte se vuelve meta si tiene objetivo --- */
 function proyeccionParte(p){
   if(!p.objetivo || p.objetivo<=0) return null;
@@ -3090,6 +3151,10 @@ function renderBolsilloWallet(){
 
   const capitalStr = [ (tot['S/']>0 || tot['USD']<=0) ? fmtDinero(tot['S/'],'S/') : null, tot['USD']>0 ? fmtDinero(tot['USD'],'USD') : null ].filter(Boolean).join(' + ');
 
+  const { racha, esteMes } = calcularRachaBolsillo(b);
+  const rachaHTML = racha>=2 ? `<span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.14); color:var(--gold-soft);"><i class="fas fa-fire text-[10px]"></i> ${racha} meses seguidos aportando</span>`
+    : (!esteMes && b.movimientos.some(mv=>mv.tipo==='deposito')) ? `<span class="text-[10px] text-[var(--ink-faint)]">Aporta este mes para iniciar una racha 🔥</span>` : '';
+
   const filas = b.partes.length ? b.partes.map(p=>{
     const r = BOLSILLO_RIESGOS[p.riesgo] || BOLSILLO_RIESGOS.medio;
     const proy = proyeccionParte(p);
@@ -3113,6 +3178,7 @@ function renderBolsilloWallet(){
           <p class="text-sm font-semibold truncate">${p.nombre}${p.objetivo?' <span style="color:var(--gold-soft)">🎯</span>':''}</p>
           <p class="text-[11px] text-[var(--ink-faint)]">${BOLSILLO_PLAZOS[p.plazo]||''} · <span style="color:${r.col}">${r.txt}</span>${p.tasa?` · ${p.tasa}% anual`:''}</p>
           ${p.tasa && p.monto>0 ? `<p class="text-[10px]" style="color:var(--sage-soft)">📈 1 año: ${fmtDinero(round2(p.monto*(1+p.tasa/100)), p.moneda)} · 5 años: ${fmtDinero(round2(p.monto*Math.pow(1+p.tasa/100,5)), p.moneda)}</p>` : ''}
+          ${p.btc ? btcLineaHTML(p, b) : ''}
         </div>
         <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
         <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar meta"><i class="fas fa-pen text-xs"></i></button>
@@ -3136,9 +3202,12 @@ function renderBolsilloWallet(){
 
   body.innerHTML = onboarding + `
     <div class="card p-5 mb-4">
-      <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Capital total · ${m.emoji} ${m.nombre}</p>
-        <span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.12); color:var(--gold-soft);"><i class="fas fa-lock text-[9px]"></i> privado</span>
+        <div class="flex items-center gap-2">
+          ${rachaHTML}
+          <span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.12); color:var(--gold-soft);"><i class="fas fa-lock text-[9px]"></i> privado</span>
+        </div>
       </div>
       <div class="flex items-baseline gap-3 mt-1 mb-3 flex-wrap">
         <span class="text-3xl font-bold mono">${capitalStr}</span>
@@ -3163,7 +3232,12 @@ function renderBolsilloWallet(){
       <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
     </div>
     <button onclick="abrirRepartoBolsillo()" class="btn btn-ghost w-full py-3 text-sm mt-2 flex items-center justify-center gap-2"><i class="fas fa-chart-pie"></i> Repartir / simular capital</button>
+    <div class="flex gap-2 mt-2">
+      <button onclick="abrirComparadorBolsillo()" class="btn btn-ghost flex-1 py-3 text-sm flex items-center justify-center gap-2"><i class="fas fa-scale-balanced"></i> Comparar opciones</button>
+      <button onclick="abrirInformeBolsillo()" class="btn btn-ghost flex-1 py-3 text-sm flex items-center justify-center gap-2"><i class="fas fa-file-csv"></i> Informe CSV</button>
+    </div>
     <button onclick="reiniciarMiBolsillo()" class="w-full text-xs text-[var(--ink-faint)] hover:text-[var(--bad)] py-3 mt-1 flex items-center justify-center gap-1.5"><i class="fas fa-arrows-rotate"></i> Reiniciar mi bolsillo (empezar de cero)</button>`;
+  asegurarPrecioBTCyRefrescar();
 }
 function abrirFormParte(parteId){
   const b = miBolsillo(); if(!b) return;
@@ -3203,6 +3277,10 @@ function abrirFormParte(parteId){
         </div>
       </div>
       <div><label class="flabel">Tasa de interés anual % <span class="opt">(opcional, para ahorros)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
+      <label class="flex items-start gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-2.5" style="border:1px solid var(--line)">
+        <input type="checkbox" id="pt-btc" ${p&&p.btc?'checked':''} style="width:auto; accent-color:var(--gold); margin-top:.15rem">
+        <span>🟠 Vincular al precio de <b>Bitcoin</b> en vivo <span class="opt">(valoriza esta meta sola, sube y baja con el mercado)</span></span>
+      </label>
       <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-2" style="border:1px solid var(--line)">
         <p class="flabel" style="margin-bottom:0">🎯 ¿Cuánto quieres juntar? <span class="opt">(opcional)</span></p>
         <div class="flex gap-3">
@@ -3230,17 +3308,21 @@ function guardarParteBolsillo(parteId){
   const objetivo = round2(parseFloat(document.getElementById('pt-objetivo').value)) || null;
   const aporteMensual = round2(parseFloat(document.getElementById('pt-aporte').value)) || null;
   const enCalendario = document.getElementById('pt-cal').checked;
+  const btc = document.getElementById('pt-btc').checked;
   if(parteId){
     const p = b.partes.find(x=>x.id===parteId); if(!p) return;
     p.nombre=nombre; p.emoji=emoji; p.plazo=plazo; p.riesgo=riesgo; p.tasa=tasa;
     p.objetivo=objetivo; p.aporteMensual=aporteMensual; p.enCalendario=objetivo?enCalendario:false;
+    if(btc && !p.btc){ p.btcPrecioEntrada = precioBTCenMoneda(p.moneda,b) || null; }
+    p.btc = btc;
     sincronizarEventoMeta(p);
     guardar(); closeModal(); renderBolsilloWallet(); toast('Meta actualizada ✏️');
   } else {
     const moneda = document.getElementById('pt-moneda').value;
     const monto = round2(parseFloat(document.getElementById('pt-monto').value) || 0);
     if(monto < 0){ toast('El monto no puede ser negativo','bad'); return; }
-    const p = { id:Date.now(), nombre, emoji, color:BOLSILLO_COLORES[b.partes.length % BOLSILLO_COLORES.length], moneda, monto, plazo, riesgo, tasa, objetivo, aporteMensual, enCalendario:objetivo?enCalendario:false };
+    const p = { id:Date.now(), nombre, emoji, color:BOLSILLO_COLORES[b.partes.length % BOLSILLO_COLORES.length], moneda, monto, plazo, riesgo, tasa, objetivo, aporteMensual, enCalendario:objetivo?enCalendario:false,
+      btc, btcPrecioEntrada: btc ? (precioBTCenMoneda(moneda,b) || null) : null };
     b.partes.push(p);
     if(monto > 0) b.movimientos.push({ id:Date.now()+1, fecha:new Date().toISOString(), tipo:'deposito', monto, moneda, deNombre:null, aNombre:nombre });
     sincronizarEventoMeta(p);
@@ -3536,6 +3618,157 @@ function aplicarReparto(){
   });
   guardar(); closeModal(); renderBolsilloWallet();
   toastDeshacer(`Capital repartido en ${items.length} metas ✅`);
+}
+
+/* --- Comparador de escenarios (calculadora referencial) --- */
+const COMPARADOR_DEFAULT = [
+  { nombre:'Ahorro seguro', pct:6, riesgo:'bajo' },
+  { nombre:'Inversión moderada', pct:12, riesgo:'medio' },
+  { nombre:'Alto riesgo (BTC / emprender)', pct:30, riesgo:'alto' },
+];
+function abrirComparadorBolsillo(){
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-scale-balanced"></i></div>
+      <h3 class="serif text-xl font-semibold">Comparar opciones</h3>
+    </div>
+    <div class="space-y-3">
+      <div class="flex gap-3">
+        <div style="width:110px" class="flex-shrink-0"><label class="flabel">Moneda</label>
+          <select id="cmp-moneda" onchange="actualizarComparador()"><option value="S/">S/ Soles</option><option value="USD">$ Dólares</option></select>
+        </div>
+        <div class="flex-1"><label class="flabel">Capital a comparar</label><input id="cmp-capital" type="number" min="0" value="1000" oninput="actualizarComparador()"></div>
+      </div>
+      <div id="cmp-filas" class="space-y-2"></div>
+      <button type="button" onclick="agregarFilaComparador()" class="text-xs text-[var(--sage-soft)] hover:text-[var(--sage)]"><i class="fas fa-plus"></i> Agregar otra opción</button>
+      <div><p class="flabel">Proyección</p><div id="cmp-preview" class="space-y-2"></div></div>
+      <p class="text-[11px] text-[var(--ink-faint)]"><i class="fas fa-circle-info"></i> Estimación referencial con interés compuesto. BTC y emprendimiento son de <b>alto riesgo</b>: el retorno no está garantizado y puede haber pérdidas.</p>
+      <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 text-sm">Cerrar</button>
+    </div>`;
+  renderFilasComparador();
+  actualizarComparador();
+}
+function renderFilasComparador(){
+  const cont = document.getElementById('cmp-filas');
+  cont.innerHTML = COMPARADOR_DEFAULT.map((op,i)=>`
+    <div class="flex items-center gap-2">
+      <input class="cmp-nombre flex-1" data-i="${i}" value="${op.nombre}" oninput="actualizarComparador()">
+      <select class="cmp-riesgo" data-i="${i}" style="width:100px" onchange="actualizarComparador()">
+        <option value="bajo" ${op.riesgo==='bajo'?'selected':''}>🟢 Bajo</option>
+        <option value="medio" ${op.riesgo==='medio'?'selected':''}>🟡 Medio</option>
+        <option value="alto" ${op.riesgo==='alto'?'selected':''}>🔴 Alto</option>
+      </select>
+      <input class="cmp-pct" data-i="${i}" type="number" min="0" step="0.5" value="${op.pct}" style="width:75px" oninput="actualizarComparador()">
+      <span class="text-xs text-[var(--ink-faint)] flex-shrink-0">% anual</span>
+    </div>`).join('');
+}
+function agregarFilaComparador(){
+  COMPARADOR_DEFAULT.push({ nombre:'Nueva opción', pct:10, riesgo:'medio' });
+  renderFilasComparador(); actualizarComparador();
+}
+function actualizarComparador(){
+  const moneda = document.getElementById('cmp-moneda').value;
+  const cap = round2(parseFloat(document.getElementById('cmp-capital').value)||0);
+  const filas = Array.from(document.querySelectorAll('.cmp-nombre')).map((inp,i)=>({
+    nombre: inp.value.trim() || `Opción ${i+1}`,
+    riesgo: document.querySelectorAll('.cmp-riesgo')[i].value,
+    pct: parseFloat(document.querySelectorAll('.cmp-pct')[i].value) || 0,
+  }));
+  const plazos = [1,3,5];
+  const prev = document.getElementById('cmp-preview');
+  prev.innerHTML = filas.map(f=>{
+    const r = BOLSILLO_RIESGOS[f.riesgo]||BOLSILLO_RIESGOS.medio;
+    const valores = plazos.map(a=> round2(cap*Math.pow(1+f.pct/100,a)));
+    return `
+    <div class="bg-[var(--bg-soft)] rounded-xl p-3" style="border:1px solid var(--line)">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-sm font-semibold">${f.nombre}</span>
+        <span class="text-[10px]" style="color:${r.col}">${r.txt} · ${f.pct}% anual</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        ${plazos.map((a,i)=>`<div><p class="text-[9px] text-[var(--ink-faint)] uppercase">${a} año${a>1?'s':''}</p><p class="mono text-sm font-semibold">${fmtDinero(valores[i],moneda)}</p></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* --- Informe CSV para descargar (mensual / anual / todo) --- */
+function abrirInformeBolsillo(){
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-4">
+      <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-file-csv"></i></div>
+      <h3 class="serif text-xl font-semibold">Informe CSV</h3>
+    </div>
+    <p class="text-sm text-[var(--ink-dim)] mb-4">Descarga tus metas y movimientos en un archivo que se abre directo en Google Sheets o Excel.</p>
+    <div class="space-y-2 mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-3" style="border:1px solid var(--line)"><input type="radio" name="inf-periodo" value="mes" checked style="width:auto"> Este mes</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-3" style="border:1px solid var(--line)"><input type="radio" name="inf-periodo" value="anio" style="width:auto"> Este año</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-3" style="border:1px solid var(--line)"><input type="radio" name="inf-periodo" value="todo" style="width:auto"> Todo el historial</label>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="descargarInformeBolsillo()" class="btn btn-primary flex-1 py-3"><i class="fas fa-download"></i> Descargar CSV</button>
+      <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
+    </div>`;
+}
+function csvEscapar(v){
+  const s = String(v==null?'':v);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function descargarInformeBolsillo(){
+  const m = DB.familia.find(f=>f.id===bolsilloActivo);
+  const b = miBolsillo(); if(!b || !m) return;
+  const periodo = document.querySelector('input[name="inf-periodo"]:checked').value;
+  const hoy = new Date();
+  const mesKey = hoy.toISOString().slice(0,7);
+  const anioKey = hoy.toISOString().slice(0,4);
+  const movs = b.movimientos.filter(mv=>{
+    if(periodo==='mes') return mv.fecha.slice(0,7)===mesKey;
+    if(periodo==='anio') return mv.fecha.slice(0,4)===anioKey;
+    return true;
+  });
+  const periodoTexto = periodo==='mes'?'Este mes':periodo==='anio'?'Este año':'Todo el historial';
+  const filas = [];
+  filas.push(['YuyoChain — Mi bolsillo']);
+  filas.push(['Miembro', m.nombre]);
+  filas.push(['Generado', hoy.toLocaleString('es-ES')]);
+  filas.push(['Periodo', periodoTexto]);
+  filas.push([]);
+  filas.push(['RESUMEN']);
+  filas.push(['Moneda','Libre','En metas','Total']);
+  ['S/','USD'].forEach(mon=>{
+    const enMetas = round2(b.partes.filter(p=>p.moneda===mon).reduce((s,p)=>s+p.monto,0));
+    filas.push([mon, saldoLibre(b,mon), enMetas, round2(saldoLibre(b,mon)+enMetas)]);
+  });
+  filas.push([]);
+  filas.push(['MIS METAS']);
+  filas.push(['Nombre','Moneda','Monto actual','Plazo','Riesgo','Tasa % anual','Objetivo','Aporte mensual','Bitcoin en vivo']);
+  b.partes.forEach(p=>{
+    filas.push([p.nombre, p.moneda, p.monto, BOLSILLO_PLAZOS[p.plazo]||'', p.riesgo||'', p.tasa||'', p.objetivo||'', p.aporteMensual||'', p.btc?'Sí':'No']);
+  });
+  filas.push([]);
+  filas.push([`MOVIMIENTOS (${periodoTexto})`]);
+  filas.push(['Fecha','Tipo','Monto','Moneda','Desde','Hacia']);
+  movs.slice().reverse().forEach(mv=>{
+    filas.push([new Date(mv.fecha).toLocaleDateString('es-ES'), mv.tipo, mv.monto, mv.moneda, mv.deNombre||'Libre', mv.aNombre||'Libre']);
+  });
+  const csv = '﻿' + filas.map(fila=> fila.map(csvEscapar).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mi-bolsillo-${m.nombre.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${hoy.toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  closeModal();
+  toast('Informe descargado 📄');
 }
 
 /* ---------- Recordatorios con Notification API ---------- */
