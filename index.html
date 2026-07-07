@@ -3656,18 +3656,36 @@ function renderFilasComparador(){
   const cont = document.getElementById('cmp-filas');
   cont.innerHTML = COMPARADOR_DEFAULT.map((op,i)=>`
     <div class="flex items-center gap-2">
-      <input class="cmp-nombre flex-1" data-i="${i}" value="${op.nombre}" oninput="actualizarComparador()">
-      <select class="cmp-riesgo" data-i="${i}" style="width:100px" onchange="actualizarComparador()">
+      <input class="cmp-nombre flex-1 min-w-0" data-i="${i}" value="${op.nombre}" oninput="actualizarComparador()">
+      <select class="cmp-riesgo flex-shrink-0" data-i="${i}" style="width:90px" onchange="actualizarComparador()">
         <option value="bajo" ${op.riesgo==='bajo'?'selected':''}>🟢 Bajo</option>
         <option value="medio" ${op.riesgo==='medio'?'selected':''}>🟡 Medio</option>
         <option value="alto" ${op.riesgo==='alto'?'selected':''}>🔴 Alto</option>
       </select>
-      <input class="cmp-pct" data-i="${i}" type="number" min="0" step="0.5" value="${op.pct}" style="width:75px" oninput="actualizarComparador()">
-      <span class="text-xs text-[var(--ink-faint)] flex-shrink-0">% anual</span>
+      <input class="cmp-pct flex-shrink-0" data-i="${i}" type="number" min="0" step="0.5" value="${op.pct}" style="width:60px" oninput="actualizarComparador()">
+      <span class="text-xs text-[var(--ink-faint)] flex-shrink-0">%</span>
+      <button type="button" onclick="eliminarFilaComparador(${i})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)] flex-shrink-0" title="Quitar esta opción"><i class="fas fa-trash text-xs"></i></button>
     </div>`).join('');
 }
+function leerFilasComparadorDesdeDOM(){
+  const nombres = document.querySelectorAll('.cmp-nombre');
+  if(!nombres.length) return;
+  const riesgos = document.querySelectorAll('.cmp-riesgo');
+  const pcts = document.querySelectorAll('.cmp-pct');
+  COMPARADOR_DEFAULT.length = 0;
+  nombres.forEach((inp,i)=>{
+    COMPARADOR_DEFAULT.push({ nombre: inp.value.trim() || `Opción ${i+1}`, riesgo: riesgos[i].value, pct: parseFloat(pcts[i].value) || 0 });
+  });
+}
 function agregarFilaComparador(){
+  leerFilasComparadorDesdeDOM();
   COMPARADOR_DEFAULT.push({ nombre:'Nueva opción', pct:10, riesgo:'medio' });
+  renderFilasComparador(); actualizarComparador();
+}
+function eliminarFilaComparador(i){
+  leerFilasComparadorDesdeDOM();
+  if(COMPARADOR_DEFAULT.length<=1){ toast('Debe quedar al menos una opción','bad'); return; }
+  COMPARADOR_DEFAULT.splice(i,1);
   renderFilasComparador(); actualizarComparador();
 }
 function actualizarComparador(){
