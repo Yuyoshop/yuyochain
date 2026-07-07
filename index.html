@@ -2984,7 +2984,7 @@ function dividirCapital(cap, pesos){
   return montos.map(c=>c/100);
 }
 const PLANTILLAS_REPARTO = {
-  iguales:     { nombre:'Partes iguales', desc:'Divide en N partes iguales', usaN:true },
+  iguales:     { nombre:'Metas iguales', desc:'Divide el capital en N metas del mismo monto', usaN:true },
   '503020':    { nombre:'50 / 30 / 20', desc:'Necesidades · Gustos · Ahorro', partes:[
     {nombre:'Necesidades', emoji:'🏠', pct:50, plazo:'corto', riesgo:'bajo'},
     {nombre:'Gustos', emoji:'🎉', pct:30, plazo:'corto', riesgo:'bajo'},
@@ -3115,17 +3115,17 @@ function renderBolsilloWallet(){
           ${p.tasa && p.monto>0 ? `<p class="text-[10px]" style="color:var(--sage-soft)">📈 1 año: ${fmtDinero(round2(p.monto*(1+p.tasa/100)), p.moneda)} · 5 años: ${fmtDinero(round2(p.monto*Math.pow(1+p.tasa/100,5)), p.moneda)}</p>` : ''}
         </div>
         <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
-        <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar parte"><i class="fas fa-pen text-xs"></i></button>
+        <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar meta"><i class="fas fa-pen text-xs"></i></button>
       </div>
       ${metaHTML}
     </div>`;
-  }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes partes. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
+  }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes metas. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
 
   const vacio = b.partes.length===0 && saldoLibre(b,'S/')===0 && saldoLibre(b,'USD')===0;
   const onboarding = vacio ? `
     <div class="card p-5 mb-4" style="border-color:var(--sage); box-shadow:0 0 0 1px var(--sage), var(--shadow-md);">
       <div class="flex items-center gap-2 mb-2"><span class="text-2xl">👋</span><h3 class="serif text-lg font-semibold">Empieza aquí</h3></div>
-      <p class="text-sm text-[var(--ink-dim)] mb-3">Este es <b>tu</b> espacio de dinero personal. Ingresas cuánto tienes y lo divides en partes con un propósito (ahorro, inversión, gastos, BTC…) para ver cómo crece.</p>
+      <p class="text-sm text-[var(--ink-dim)] mb-3">Este es <b>tu</b> espacio de dinero personal. Ingresas cuánto tienes y lo divides en metas con un propósito (ahorro, inversión, gastos, BTC…) para ver cómo crece.</p>
       <div class="space-y-2 mb-4">
         <div class="flex items-center gap-3 text-sm"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:var(--sage); color:#fff">1</span> Dinos cuánto dinero quieres organizar.</div>
         <div class="flex items-center gap-3 text-sm"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:var(--sage); color:#fff">2</span> Elige cómo repartirlo (o déjalo junto por ahora).</div>
@@ -3154,11 +3154,11 @@ function renderBolsilloWallet(){
       <p class="text-[10px] text-[var(--ink-faint)] mt-3">TC referencial: S/ ${tc} por $1 · <button onclick="editarTcBolsillo()" class="underline hover:text-[var(--gold-soft)]">cambiar</button></p>
     </div>
 
-    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">Mis partes${b.partes.length?` · ${b.partes.length}`:''}</p>
+    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">Mis metas${b.partes.length?` · ${b.partes.length}`:''}</p>
     ${filas}
 
     <div class="flex gap-2 mt-4">
-      <button onclick="abrirFormParte(null)" class="btn btn-primary flex-1 py-3 text-sm"><i class="fas fa-plus"></i> Nueva parte</button>
+      <button onclick="abrirFormParte(null)" class="btn btn-primary flex-1 py-3 text-sm"><i class="fas fa-plus"></i> Nueva meta</button>
       <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold flex-1 py-3 text-sm"><i class="fas fa-right-left"></i> Movimiento</button>
       <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
     </div>
@@ -3175,7 +3175,7 @@ function abrirFormParte(parteId){
   c.innerHTML = `
     <div class="flex items-center gap-2 mb-4">
       <div class="sec-badge" style="--glow:var(--sage); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-${p?'pen':'plus'}"></i></div>
-      <h3 class="serif text-xl font-semibold">${p?'Editar parte':'Nueva parte'}</h3>
+      <h3 class="serif text-xl font-semibold">${p?'Editar meta':'Nueva meta'}</h3>
     </div>
     <div class="space-y-3">
       <div><label class="flabel">Nombre / propósito</label><input id="pt-nombre" value="${p?(p.nombre||'').replace(/"/g,'&quot;'):''}" placeholder="Ej: Ahorro, BTC, Emprendimiento"></div>
@@ -3204,7 +3204,7 @@ function abrirFormParte(parteId){
       </div>
       <div><label class="flabel">Tasa de interés anual % <span class="opt">(opcional, para ahorros)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
       <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-2" style="border:1px solid var(--line)">
-        <p class="flabel" style="margin-bottom:0">🎯 Convertir en meta <span class="opt">(opcional)</span></p>
+        <p class="flabel" style="margin-bottom:0">🎯 ¿Cuánto quieres juntar? <span class="opt">(opcional)</span></p>
         <div class="flex gap-3">
           <div class="flex-1"><label class="flabel">Objetivo</label><input id="pt-objetivo" type="number" min="0" value="${p&&p.objetivo?p.objetivo:''}" placeholder="Ej: 2500"></div>
           <div class="flex-1"><label class="flabel">Aporte mensual</label><input id="pt-aporte" type="number" min="0" value="${p&&p.aporteMensual?p.aporteMensual:''}" placeholder="Ej: 200"></div>
@@ -3213,7 +3213,7 @@ function abrirFormParte(parteId){
         <p class="text-[11px] text-[var(--ink-faint)]">La familia solo verá el nombre de la meta y tu nombre en la fecha estimada. Tus montos siguen privados.</p>
       </div>
       <div class="flex gap-2 mt-2">
-        <button onclick="guardarParteBolsillo(${parteId||'null'})" class="btn btn-primary flex-1 py-3">${p?'Guardar cambios':'Crear parte'}</button>
+        <button onclick="guardarParteBolsillo(${parteId||'null'})" class="btn btn-primary flex-1 py-3">${p?'Guardar cambios':'Crear meta'}</button>
         ${p?`<button onclick="eliminarParteBolsillo(${p.id})" class="btn btn-ghost px-4 py-3" title="Eliminar (su dinero pasa a Libre)"><i class="fas fa-trash text-[var(--bad)]"></i></button>`:''}
         <button onclick="closeModal()" class="btn btn-ghost px-4 py-3">Cancelar</button>
       </div>
@@ -3222,7 +3222,7 @@ function abrirFormParte(parteId){
 function guardarParteBolsillo(parteId){
   const b = miBolsillo(); if(!b) return;
   const nombre = document.getElementById('pt-nombre').value.trim();
-  if(!nombre){ toast('Ponle nombre a la parte', 'bad'); return; }
+  if(!nombre){ toast('Ponle nombre a la meta', 'bad'); return; }
   const emoji = document.getElementById('pt-emoji').value || '💰';
   const plazo = document.getElementById('pt-plazo').value;
   const riesgo = document.getElementById('pt-riesgo').value;
@@ -3235,7 +3235,7 @@ function guardarParteBolsillo(parteId){
     p.nombre=nombre; p.emoji=emoji; p.plazo=plazo; p.riesgo=riesgo; p.tasa=tasa;
     p.objetivo=objetivo; p.aporteMensual=aporteMensual; p.enCalendario=objetivo?enCalendario:false;
     sincronizarEventoMeta(p);
-    guardar(); closeModal(); renderBolsilloWallet(); toast('Parte actualizada ✏️');
+    guardar(); closeModal(); renderBolsilloWallet(); toast('Meta actualizada ✏️');
   } else {
     const moneda = document.getElementById('pt-moneda').value;
     const monto = round2(parseFloat(document.getElementById('pt-monto').value) || 0);
@@ -3244,7 +3244,7 @@ function guardarParteBolsillo(parteId){
     b.partes.push(p);
     if(monto > 0) b.movimientos.push({ id:Date.now()+1, fecha:new Date().toISOString(), tipo:'deposito', monto, moneda, deNombre:null, aNombre:nombre });
     sincronizarEventoMeta(p);
-    guardar(); closeModal(); renderBolsilloWallet(); toast(`Parte "${nombre}" creada 💰`);
+    guardar(); closeModal(); renderBolsilloWallet(); toast(`Meta "${nombre}" creada 💰`);
   }
 }
 function eliminarParteBolsillo(parteId){
@@ -3258,7 +3258,7 @@ function eliminarParteBolsillo(parteId){
   if(p.eventoId){ DB.eventos = DB.eventos.filter(e=>e.id!==p.eventoId); }
   b.partes = b.partes.filter(x=>x.id!==parteId);
   guardar(); closeModal(); renderBolsilloWallet();
-  toast('Parte eliminada · su dinero quedó en Libre 🛡️');
+  toast('Meta eliminada · su dinero quedó en Libre 🛡️');
 }
 function abrirMovimientoBolsillo(){
   const b = miBolsillo(); if(!b) return;
@@ -3278,7 +3278,7 @@ function abrirMovimientoBolsillo(){
         <select id="mv-tipo" onchange="actualizarFormMovBolsillo()">
           <option value="deposito">▲ Depositar — entra dinero nuevo</option>
           <option value="retiro">▼ Retirar — sale dinero</option>
-          <option value="mover">⇄ Mover entre partes</option>
+          <option value="mover">⇄ Mover entre metas</option>
         </select>
       </div>
       <div id="mv-wrap-origen" class="hidden"><label class="flabel">Desde</label><select id="mv-origen">${opciones}</select></div>
@@ -3400,7 +3400,7 @@ function resetearClaveBolsillo(id){
   guardar(); toast(`Clave de ${nombrePorId(id)} reseteada 🔑`);
 }
 function borrarEspacioBolsillo(id){
-  if(!confirm(`¿Borrar TODO el bolsillo de ${nombrePorId(id)}? Se pierde su capital, partes e historial.`)) return;
+  if(!confirm(`¿Borrar TODO el bolsillo de ${nombrePorId(id)}? Se pierde su capital, metas e historial.`)) return;
   guardarSnapshot();
   delete DB.bolsillos[id];
   if(bolsilloActivo===id) bolsilloActivo=null;
@@ -3422,7 +3422,7 @@ function cambiarClaveBolsillo(){
 function salirBolsillo(){ bolsilloActivo = null; renderBolsillo(); toast('Bolsillo bloqueado 🔒'); }
 function reiniciarMiBolsillo(){
   const b = miBolsillo(); if(!b) return;
-  if(!confirm('¿Vaciar tu bolsillo? Se borran todas tus partes, movimientos y saldos. Tu clave se mantiene. Ideal para empezar de cero.')) return;
+  if(!confirm('¿Vaciar tu bolsillo? Se borran todas tus metas, movimientos y saldos. Tu clave se mantiene. Ideal para empezar de cero.')) return;
   guardarSnapshot();
   b.partes.forEach(p=>{ if(p.eventoId) DB.eventos = DB.eventos.filter(e=>e.id!==p.eventoId); });
   b.partes = [];
@@ -3466,7 +3466,7 @@ function abrirRepartoBolsillo(){
           ${Object.entries(PLANTILLAS_REPARTO).map(([k,v])=>`<option value="${k}">${v.nombre} — ${v.desc}</option>`).join('')}
         </select>
       </div>
-      <div id="rp-n-wrap"><label class="flabel">¿En cuántas partes?</label><input id="rp-n" type="number" min="2" max="20" value="10" oninput="actualizarPreviewReparto()"></div>
+      <div id="rp-n-wrap"><label class="flabel">¿En cuántas metas?</label><input id="rp-n" type="number" min="2" max="20" value="10" oninput="actualizarPreviewReparto()"></div>
       <div><p class="flabel">Vista previa</p><div id="rp-preview" class="space-y-1.5"></div></div>
       <div class="flex gap-2 mt-2">
         <button onclick="aplicarReparto()" class="btn btn-primary flex-1 py-3"><i class="fas fa-check"></i> Aplicar a mi dinero</button>
@@ -3485,7 +3485,7 @@ function calcularReparto(){
   if(plant.usaN){
     const n = Math.max(2, Math.min(20, parseInt(document.getElementById('rp-n').value)||10));
     const montos = dividirCapital(cap, Array(n).fill(1));
-    items = montos.map((mm,i)=>({ nombre:`Parte ${i+1}`, emoji:'💰', monto:mm, plazo:'mediano', riesgo:'medio' }));
+    items = montos.map((mm,i)=>({ nombre:`Meta ${i+1}`, emoji:'💰', monto:mm, plazo:'mediano', riesgo:'medio' }));
   } else {
     const montos = dividirCapital(cap, plant.partes.map(pp=>pp.pct));
     items = plant.partes.map((pp,i)=>({ nombre:pp.nombre, emoji:pp.emoji, monto:montos[i], plazo:pp.plazo, riesgo:pp.riesgo }));
@@ -3535,7 +3535,7 @@ function aplicarReparto(){
     b.movimientos.push({ id:Date.now()+2000+i, fecha:new Date().toISOString(), tipo:'mover', monto:it.monto, moneda, deNombre:'Libre', aNombre:it.nombre });
   });
   guardar(); closeModal(); renderBolsilloWallet();
-  toastDeshacer(`Capital repartido en ${items.length} partes ✅`);
+  toastDeshacer(`Capital repartido en ${items.length} metas ✅`);
 }
 
 /* ---------- Recordatorios con Notification API ---------- */
