@@ -2935,6 +2935,7 @@ const BOLSILLO_PLAZOS = { corto:'Corto plazo', mediano:'Mediano plazo', largo:'L
 const BOLSILLO_RIESGOS = { bajo:{txt:'riesgo bajo', col:'var(--good)'}, medio:{txt:'riesgo medio', col:'var(--gold-soft)'}, alto:{txt:'riesgo alto', col:'var(--bad)'} };
 
 function round2(v){ return Math.round(v*100)/100; }
+function escHTML(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function fmtDinero(monto, moneda){
   const n = (+monto).toLocaleString('es-PE',{ maximumFractionDigits:2 });
   return (moneda==='USD' ? '$ ' : 'S/ ') + n;
@@ -3094,8 +3095,8 @@ function renderBolsillo(){
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           ${miembros.map(m=>`
             <button onclick="seleccionarMiembroBolsillo(${m.id})" class="btn btn-ghost p-3 flex flex-col items-center gap-1">
-              <span class="text-2xl">${m.emoji}</span>
-              <span class="text-sm font-semibold">${m.nombre}</span>
+              <span class="text-2xl">${escHTML(m.emoji)}</span>
+              <span class="text-sm font-semibold">${escHTML(m.nombre)}</span>
               <span class="text-[10px] ${DB.bolsillos[m.id]?'text-[var(--sage-soft)]':'text-[var(--ink-faint)]'}">${DB.bolsillos[m.id]?'🔑 entrar':'crear espacio'}</span>
             </button>`).join('')}
         </div>` : `<p class="text-sm text-[var(--ink-faint)]">Nadie está autorizado todavía. Usa el botón de administración (arriba a la derecha) para elegir quiénes pueden usar Mi bolsillo.</p>`}
@@ -3111,8 +3112,8 @@ function seleccionarMiembroBolsillo(id){
   const body = document.getElementById('bolsilloBody');
   body.innerHTML = `
     <div class="card p-6 max-w-sm mx-auto text-center">
-      <span class="text-4xl">${m.emoji}</span>
-      <h3 class="serif text-xl font-semibold mt-2 mb-1">${m.nombre}</h3>
+      <span class="text-4xl">${escHTML(m.emoji)}</span>
+      <h3 class="serif text-xl font-semibold mt-2 mb-1">${escHTML(m.nombre)}</h3>
       ${b ? `
         <p class="text-sm text-[var(--ink-dim)] mb-4">Ingresa tu clave personal.</p>
         <input id="bp-clave" type="password" placeholder="Tu clave" class="!text-center" onkeydown="if(event.key==='Enter') entrarBolsillo(${id})">
@@ -3168,37 +3169,65 @@ function renderBolsilloWallet(){
   const rachaHTML = racha>=2 ? `<span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.14); color:var(--gold-soft);"><i class="fas fa-fire text-[10px]"></i> ${racha} meses seguidos aportando</span>`
     : (!esteMes && b.movimientos.some(mv=>mv.tipo==='deposito')) ? `<span class="text-[10px] text-[var(--ink-faint)]">Aporta este mes para iniciar una racha 🔥</span>` : '';
 
+  const chipTono = { neutro:['var(--surface-2)','var(--ink-dim)'], bajo:['rgba(52,211,153,.14)','var(--good)'], medio:['rgba(245,158,11,.14)','var(--gold-soft)'], alto:['rgba(248,113,113,.14)','var(--bad)'] };
+  const chipHTML = (txt,t)=>{ const c=chipTono[t]||chipTono.neutro; return `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full" style="background:${c[0]}; color:${c[1]};">${txt}</span>`; };
+  const RIESGO_TXT = { bajo:'🟢 Tranquilo', medio:'🟡 Medio', alto:'🔴 Arriesgado' };
+
   const filas = b.partes.length ? b.partes.map(p=>{
-    const r = BOLSILLO_RIESGOS[p.riesgo] || BOLSILLO_RIESGOS.medio;
     const proy = proyeccionParte(p);
     let metaHTML = '';
     if(proy){
-      const cuando = proy.completa ? '¡Meta cumplida! 🎉' : proy.fecha ? ('≈ '+proy.fecha.toLocaleDateString('es-ES',{month:'short',year:'numeric'})+(p.enCalendario?' 📅':'')) : 'define aporte mensual';
+      const cuando = proy.completa ? '' : proy.fecha ? ('Llegas ≈ '+proy.fecha.toLocaleDateString('es-ES',{month:'short',year:'numeric'})+(p.enCalendario?' 📅':'')) : 'Ponle aporte mensual para estimar la fecha';
       metaHTML = `
-        <div class="mt-2">
-          <div class="flex justify-between items-center text-[10px] mb-1">
-            <span style="color:var(--gold-soft)">🎯 ${fmtDinero(p.monto,p.moneda)} / ${fmtDinero(p.objetivo,p.moneda)}</span>
-            <span class="${proy.completa?'text-[var(--good)]':'text-[var(--ink-faint)]'}">${cuando}</span>
+        <div class="mt-3 pt-3" style="border-top:1px dashed var(--line)">
+          <div class="flex justify-between items-center gap-2 text-[11px] mb-1.5">
+            <span class="font-bold" style="color:${proy.completa?'var(--good)':'var(--gold-soft)'}">${proy.completa?'✅ ¡Meta cumplida! 🎉':`🎯 Vas al ${(proy.pct*100).toFixed(0)}% de ${fmtDinero(p.objetivo,p.moneda)}`}</span>
+            <span class="text-[var(--ink-faint)] text-right">${cuando}</span>
           </div>
-          <div class="w-full h-1.5 rounded-full" style="background:var(--line)"><div class="h-1.5 rounded-full" style="width:${(proy.pct*100).toFixed(0)}%; background:${proy.completa?'var(--good)':'var(--gold)'}"></div></div>
+          <div class="w-full h-2 rounded-full" style="background:var(--line)"><div class="h-2 rounded-full" style="width:${(proy.pct*100).toFixed(0)}%; background:${proy.completa?'var(--good)':'linear-gradient(90deg,var(--gold-soft),var(--gold))'}"></div></div>
         </div>`;
     }
     return `
-    <div class="card p-3.5 mb-2">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background:${p.color}22; box-shadow:inset 0 0 0 1px ${p.color};">${p.emoji||'💰'}</div>
+    <div class="card p-4 mb-2.5" style="border-left:4px solid ${p.color};">
+      <div class="flex items-start gap-3">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:${p.color}1f; box-shadow:inset 0 0 0 1px ${p.color}66;">${escHTML(p.emoji||'💰')}</div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold truncate">${p.nombre}${p.objetivo?' <span style="color:var(--gold-soft)">🎯</span>':''}</p>
-          <p class="text-[11px] text-[var(--ink-faint)]">${BOLSILLO_PLAZOS[p.plazo]||''} · <span style="color:${r.col}">${r.txt}</span>${p.tasa?` · ${p.tasa}% anual`:''}</p>
-          ${p.tasa && p.monto>0 ? `<p class="text-[10px]" style="color:var(--sage-soft)">📈 1 año: ${fmtDinero(round2(p.monto*(1+p.tasa/100)), p.moneda)} · 5 años: ${fmtDinero(round2(p.monto*Math.pow(1+p.tasa/100,5)), p.moneda)}</p>` : ''}
+          <div class="flex items-start justify-between gap-2">
+            <p class="text-[15px] font-bold leading-tight truncate">${escHTML(p.nombre)}</p>
+            <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0 -mt-1" title="Editar meta"><i class="fas fa-pen text-xs"></i></button>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="mono text-lg font-bold">${fmtDinero(p.monto, p.moneda)}</span>
+            <span class="text-[10px] text-[var(--ink-faint)]">guardado aquí</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            ${chipHTML(BOLSILLO_PLAZOS[p.plazo]||'Sin plazo','neutro')}
+            ${chipHTML(RIESGO_TXT[p.riesgo]||RIESGO_TXT.medio, p.riesgo||'medio')}
+            ${p.tasa?chipHTML(`💹 Gana ${p.tasa}% al año`,'bajo'):''}
+            ${p.btc?chipHTML('🟠 Sigue a Bitcoin','medio'):''}
+          </div>
+          ${p.tasa && p.monto>0 ? `<p class="text-[10px] mt-2" style="color:var(--sage-soft)">📈 Si lo dejas: ${fmtDinero(round2(p.monto*(1+p.tasa/100)), p.moneda)} en 1 año · ${fmtDinero(round2(p.monto*Math.pow(1+p.tasa/100,5)), p.moneda)} en 5</p>` : ''}
           ${p.btc ? btcLineaHTML(p, b) : ''}
         </div>
-        <span class="mono text-sm font-semibold flex-shrink-0">${fmtDinero(p.monto, p.moneda)}</span>
-        <button onclick="abrirFormParte(${p.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar meta"><i class="fas fa-pen text-xs"></i></button>
       </div>
       ${metaHTML}
     </div>`;
-  }).join('') : `<div class="card p-5 text-center text-sm text-[var(--ink-faint)]">Aún no tienes metas. Crea la primera para darle un propósito a tu dinero (ahorro, BTC, emprendimiento…).</div>`;
+  }).join('') : `<div class="card p-6 text-center">
+      <p class="text-3xl mb-2">🎯</p>
+      <p class="text-sm font-semibold mb-1">Todavía no tienes metas</p>
+      <p class="text-xs text-[var(--ink-faint)]">Una meta es un sobre con propósito: "Ahorro", "Laptop nueva", "Mi negocio"… Toca <b class="text-[var(--sage-soft)]">+ Nueva meta</b> para crear la primera.</p>
+    </div>`;
+
+  const secHeader = (icono, titulo, sub) => `
+    <div class="flex items-center gap-2.5 mt-6 mb-3">
+      <span class="w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0" style="background:rgba(16,185,129,.14); color:var(--sage-soft)"><i class="fas ${icono}"></i></span>
+      <div class="min-w-0"><p class="text-sm font-bold leading-none">${titulo}</p><p class="text-[11px] text-[var(--ink-faint)] mt-1">${sub}</p></div>
+    </div>`;
+  const tool = (fn, icono, titulo, desc) => `
+    <button onclick="${fn}" class="card p-3.5 text-left flex items-start gap-2.5 w-full">
+      <span class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:var(--surface-2); color:var(--sage-soft)"><i class="fas ${icono}"></i></span>
+      <span class="min-w-0"><span class="block text-[13px] font-bold leading-tight">${titulo}</span><span class="block text-[10px] text-[var(--ink-faint)] mt-0.5 leading-snug">${desc}</span></span>
+    </button>`;
 
   const vacio = b.partes.length===0 && saldoLibre(b,'S/')===0 && saldoLibre(b,'USD')===0;
   const onboarding = vacio ? `
@@ -3214,43 +3243,53 @@ function renderBolsilloWallet(){
     </div>` : '';
 
   body.innerHTML = onboarding + `
-    <div class="card p-5 mb-4">
+    <div class="card p-5 mb-1" style="border-color:var(--sage);">
       <div class="flex items-center justify-between gap-2 flex-wrap">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">Capital total · ${m.emoji} ${m.nombre}</p>
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--ink-faint)]">💼 Mi dinero total · ${escHTML(m.emoji)} ${escHTML(m.nombre)}</p>
         <div class="flex items-center gap-2">
           ${rachaHTML}
           <span class="chip flex items-center gap-1" style="background:rgba(245,158,11,.12); color:var(--gold-soft);"><i class="fas fa-lock text-[9px]"></i> privado</span>
         </div>
       </div>
-      <div class="flex items-baseline gap-3 mt-1 mb-3 flex-wrap">
+      <div class="flex items-baseline gap-3 mt-1.5 mb-3 flex-wrap">
         <span class="text-3xl font-bold mono">${capitalStr}</span>
-        <span class="text-xs text-[var(--gold-soft)]">libre: ${fmtDinero(saldoLibre(b,'S/'),'S/')}${saldoLibre(b,'USD')>0 ? ' · '+fmtDinero(saldoLibre(b,'USD'),'USD') : ''}</span>
+        ${libreEq>0 ? `<span class="text-xs text-[var(--gold-soft)]">💤 Sin destino aún: ${fmtDinero(saldoLibre(b,'S/'),'S/')}${saldoLibre(b,'USD')>0 ? ' + '+fmtDinero(saldoLibre(b,'USD'),'USD') : ''}</span>` : ''}
       </div>
       ${totalEq>0 ? `
-      <div class="flex h-2 rounded-full overflow-hidden" style="gap:2px;">
+      <div class="flex h-2.5 rounded-full overflow-hidden" style="gap:2px;">
         ${seg.map(s=>`<span style="flex:${s.w}; background:${s.col};"></span>`).join('')}
       </div>
       <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-[var(--ink-dim)]">
-        ${seg.map(s=>`<span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${s.col}"></span>${s.nom}</span>`).join('')}
-      </div>` : `<p class="text-sm text-[var(--ink-faint)]">Sin dinero todavía. Usa <b>Movimiento → Depositar</b> para ingresar tu primer capital.</p>`}
-      <p class="text-[10px] text-[var(--ink-faint)] mt-3">TC referencial: S/ ${tc} por $1 · <button onclick="editarTcBolsillo()" class="underline hover:text-[var(--gold-soft)]">cambiar</button></p>
-      ${b.partes.some(p=>p.btc) ? `<p class="text-[10px] mt-1" style="color:var(--gold-soft)">🟠 Precio BTC: ${btcPrecio.usd?fmtDinero(precioBTCenMoneda('USD',b),'USD'):'…'} ${btcPrecio.ts?'· hace '+minutosDesde(btcPrecio.ts)+' min':''} · <button onclick="refrescarPrecioBTCManual()" class="underline hover:text-[var(--gold)]">actualizar ahora</button></p>` : ''}
+        ${seg.map(s=>`<span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${s.col}"></span>${escHTML(s.nom)}</span>`).join('')}
+      </div>` : `<p class="text-sm text-[var(--ink-faint)]">Todavía no hay dinero aquí. Toca <b class="text-[var(--gold-soft)]">Movimiento</b> y deposita tu primer monto.</p>`}
+      <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[10px] text-[var(--ink-faint)]">
+        <span>💱 Tipo de cambio: S/ ${tc} por $1 · <button onclick="editarTcBolsillo()" class="underline hover:text-[var(--gold-soft)]">cambiar</button></span>
+        ${b.partes.some(p=>p.btc) ? `<span style="color:var(--gold-soft)">🟠 1 Bitcoin = ${btcPrecio.usd?fmtDinero(precioBTCenMoneda('USD',b),'USD'):'…'} ${btcPrecio.ts?'· hace '+minutosDesde(btcPrecio.ts)+' min':''} · <button onclick="refrescarPrecioBTCManual()" class="underline hover:text-[var(--gold)]">actualizar</button></span>` : ''}
+      </div>
     </div>
 
-    <p class="text-xs font-semibold uppercase tracking-widest text-[var(--ink-faint)] mb-2">Mis metas${b.partes.length?` · ${b.partes.length}`:''}</p>
+    ${secHeader('fa-bullseye', `Mis metas${b.partes.length?` · ${b.partes.length}`:''}`, 'Cada meta es un sobre de dinero con su propio propósito')}
     ${filas}
 
-    <div class="flex gap-2 mt-4">
-      <button onclick="abrirFormParte(null)" class="btn btn-primary flex-1 py-3 text-sm"><i class="fas fa-plus"></i> Nueva meta</button>
-      <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold flex-1 py-3 text-sm"><i class="fas fa-right-left"></i> Movimiento</button>
-      <button onclick="verHistorialBolsillo()" class="btn btn-ghost px-4 py-3" title="Historial de movimientos"><i class="fas fa-clock-rotate-left"></i></button>
+    <div class="grid grid-cols-2 gap-2 mt-5">
+      <button onclick="abrirFormParte(null)" class="btn btn-primary py-3 flex flex-col items-center gap-0.5">
+        <span class="text-sm font-bold"><i class="fas fa-plus"></i> Nueva meta</span>
+        <span class="text-[10px] opacity-85 font-normal">Crear un sobre con propósito</span>
+      </button>
+      <button onclick="abrirMovimientoBolsillo()" class="btn btn-gold py-3 flex flex-col items-center gap-0.5">
+        <span class="text-sm font-bold"><i class="fas fa-right-left"></i> Movimiento</span>
+        <span class="text-[10px] opacity-85 font-normal">Depositar, retirar o mover</span>
+      </button>
     </div>
-    <button onclick="abrirRepartoBolsillo()" class="btn btn-ghost w-full py-3 text-sm mt-2 flex items-center justify-center gap-2"><i class="fas fa-chart-pie"></i> Repartir / simular capital</button>
-    <div class="flex gap-2 mt-2">
-      <button onclick="abrirComparadorBolsillo()" class="btn btn-ghost flex-1 py-3 text-sm flex items-center justify-center gap-2"><i class="fas fa-scale-balanced"></i> Comparar opciones</button>
-      <button onclick="abrirInformeBolsillo()" class="btn btn-ghost flex-1 py-3 text-sm flex items-center justify-center gap-2"><i class="fas fa-file-csv"></i> Informe CSV</button>
+
+    ${secHeader('fa-toolbox', 'Herramientas', 'Para planear, comparar y revisar tu dinero')}
+    <div class="grid grid-cols-2 gap-2">
+      ${tool('abrirRepartoBolsillo()','fa-chart-pie','Repartir dinero','Divide un monto en varias metas de un toque')}
+      ${tool('abrirComparadorBolsillo()','fa-scale-balanced','Comparar','¿Dónde crece más? Ahorro vs inversión vs BTC')}
+      ${tool('abrirInformeBolsillo()','fa-file-arrow-down','Informe','Descarga tus números para Excel o Sheets')}
+      ${tool('verHistorialBolsillo()','fa-clock-rotate-left','Historial','Todos tus movimientos, del más reciente')}
     </div>
-    <button onclick="reiniciarMiBolsillo()" class="w-full text-xs text-[var(--ink-faint)] hover:text-[var(--bad)] py-3 mt-1 flex items-center justify-center gap-1.5"><i class="fas fa-arrows-rotate"></i> Reiniciar mi bolsillo (empezar de cero)</button>`;
+    <button onclick="reiniciarMiBolsillo()" class="w-full text-xs text-[var(--ink-faint)] hover:text-[var(--bad)] py-3 mt-3 flex items-center justify-center gap-1.5"><i class="fas fa-arrows-rotate"></i> Reiniciar mi bolsillo (empezar de cero)</button>`;
   asegurarPrecioBTCyRefrescar();
 }
 function abrirFormParte(parteId){
@@ -3266,44 +3305,49 @@ function abrirFormParte(parteId){
       <h3 class="serif text-xl font-semibold">${p?'Editar meta':'Nueva meta'}</h3>
     </div>
     <div class="space-y-3">
-      <div><label class="flabel">Nombre / propósito</label><input id="pt-nombre" value="${p?(p.nombre||'').replace(/"/g,'&quot;'):''}" placeholder="Ej: Ahorro, BTC, Emprendimiento"></div>
+      <div><label class="flabel">¿Para qué es este dinero?</label><input id="pt-nombre" value="${p?escHTML(p.nombre||''):''}" placeholder="Ej: Ahorro, Laptop nueva, Mi negocio"></div>
       <div class="flex gap-3">
-        <div style="width:80px" class="flex-shrink-0"><label class="flabel">Emoji</label><input id="pt-emoji" value="${p?(p.emoji||'💰'):'💰'}" class="text-center"></div>
+        <div style="width:80px" class="flex-shrink-0"><label class="flabel">Emoji</label><input id="pt-emoji" value="${p?escHTML(p.emoji||'💰'):'💰'}" class="text-center"></div>
         <div class="flex-1"><label class="flabel">Moneda</label>
           <select id="pt-moneda" ${p?'disabled':''}><option value="S/" ${(!p||p.moneda==='S/')?'selected':''}>S/ Soles</option><option value="USD" ${p&&p.moneda==='USD'?'selected':''}>$ Dólares</option></select>
         </div>
       </div>
-      ${p?'':`<div><label class="flabel">Monto inicial <span class="opt">(opcional — se registra como depósito)</span></label><input id="pt-monto" type="number" min="0" placeholder="0"></div>`}
-      <div class="flex gap-3">
-        <div class="flex-1"><label class="flabel">Plazo</label>
-          <select id="pt-plazo">
-            <option value="corto" ${p&&p.plazo==='corto'?'selected':''}>Corto (menos de 1 año)</option>
-            <option value="mediano" ${(!p||p.plazo==='mediano')?'selected':''}>Mediano (1 a 3 años)</option>
-            <option value="largo" ${p&&p.plazo==='largo'?'selected':''}>Largo (3+ años)</option>
-          </select>
-        </div>
-        <div class="flex-1"><label class="flabel">Riesgo</label>
-          <select id="pt-riesgo">
-            <option value="bajo" ${(!p||p.riesgo==='bajo')?'selected':''}>🟢 Bajo</option>
-            <option value="medio" ${p&&p.riesgo==='medio'?'selected':''}>🟡 Medio</option>
-            <option value="alto" ${p&&p.riesgo==='alto'?'selected':''}>🔴 Alto</option>
-          </select>
-        </div>
-      </div>
-      <div><label class="flabel">Tasa de interés anual % <span class="opt">(opcional, para ahorros)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
-      <label class="flex items-start gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-2.5" style="border:1px solid var(--line)">
-        <input type="checkbox" id="pt-btc" ${p&&p.btc?'checked':''} style="width:auto; accent-color:var(--gold); margin-top:.15rem">
-        <span>🟠 Vincular al precio de <b>Bitcoin</b> en vivo <span class="opt">(valoriza esta meta sola, sube y baja con el mercado)</span></span>
-      </label>
+      ${p?'':`<div><label class="flabel">¿Con cuánto empiezas? <span class="opt">(opcional, puedes depositar después)</span></label><input id="pt-monto" type="number" min="0" placeholder="0"></div>`}
       <div class="bg-[var(--bg-soft)] rounded-xl p-3 space-y-2" style="border:1px solid var(--line)">
         <p class="flabel" style="margin-bottom:0">🎯 ¿Cuánto quieres juntar? <span class="opt">(opcional)</span></p>
         <div class="flex gap-3">
-          <div class="flex-1"><label class="flabel">Objetivo</label><input id="pt-objetivo" type="number" min="0" value="${p&&p.objetivo?p.objetivo:''}" placeholder="Ej: 2500"></div>
-          <div class="flex-1"><label class="flabel">Aporte mensual</label><input id="pt-aporte" type="number" min="0" value="${p&&p.aporteMensual?p.aporteMensual:''}" placeholder="Ej: 200"></div>
+          <div class="flex-1"><label class="flabel">Tu meta</label><input id="pt-objetivo" type="number" min="0" value="${p&&p.objetivo?p.objetivo:''}" placeholder="Ej: 2500"></div>
+          <div class="flex-1"><label class="flabel">Ahorro al mes</label><input id="pt-aporte" type="number" min="0" value="${p&&p.aporteMensual?p.aporteMensual:''}" placeholder="Ej: 200"></div>
         </div>
         <label class="flex items-start gap-2 text-sm cursor-pointer"><input type="checkbox" id="pt-cal" ${p&&p.enCalendario?'checked':''} style="width:auto; accent-color:var(--sage); margin-top:.15rem"> <span>📅 Mostrar la fecha estimada en el calendario familiar</span></label>
         <p class="text-[11px] text-[var(--ink-faint)]">La familia solo verá el nombre de la meta y tu nombre en la fecha estimada. Tus montos siguen privados.</p>
       </div>
+      <details class="bg-[var(--bg-soft)] rounded-xl" style="border:1px solid var(--line)" ${p&&(p.tasa||p.btc||p.plazo!=='mediano'||(p.riesgo&&p.riesgo!=='bajo'))?'open':''}>
+        <summary class="p-3 text-sm cursor-pointer select-none font-semibold text-[var(--ink-dim)]">⚙️ Más opciones <span class="opt">(plazo, riesgo, interés, Bitcoin)</span></summary>
+        <div class="p-3 pt-1 space-y-3">
+          <div class="flex gap-3">
+            <div class="flex-1"><label class="flabel">Plazo</label>
+              <select id="pt-plazo">
+                <option value="corto" ${p&&p.plazo==='corto'?'selected':''}>Corto (menos de 1 año)</option>
+                <option value="mediano" ${(!p||p.plazo==='mediano')?'selected':''}>Mediano (1 a 3 años)</option>
+                <option value="largo" ${p&&p.plazo==='largo'?'selected':''}>Largo (3+ años)</option>
+              </select>
+            </div>
+            <div class="flex-1"><label class="flabel">Riesgo</label>
+              <select id="pt-riesgo">
+                <option value="bajo" ${(!p||p.riesgo==='bajo')?'selected':''}>🟢 Tranquilo</option>
+                <option value="medio" ${p&&p.riesgo==='medio'?'selected':''}>🟡 Medio</option>
+                <option value="alto" ${p&&p.riesgo==='alto'?'selected':''}>🔴 Arriesgado</option>
+              </select>
+            </div>
+          </div>
+          <div><label class="flabel">Interés anual % <span class="opt">(si el banco o caja te paga por ahorrar)</span></label><input id="pt-tasa" type="number" min="0" step="0.1" value="${p&&p.tasa?p.tasa:''}" placeholder="Ej: 6"></div>
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input type="checkbox" id="pt-btc" ${p&&p.btc?'checked':''} style="width:auto; accent-color:var(--gold); margin-top:.15rem">
+            <span>🟠 Sigue el precio de <b>Bitcoin</b> <span class="opt">(muestra cuánto valdría hoy; sube y baja con el mercado)</span></span>
+          </label>
+        </div>
+      </details>
       <div class="flex gap-2 mt-2">
         <button onclick="guardarParteBolsillo(${parteId||'null'})" class="btn btn-primary flex-1 py-3">${p?'Guardar cambios':'Crear meta'}</button>
         ${p?`<button onclick="eliminarParteBolsillo(${p.id})" class="btn btn-ghost px-4 py-3" title="Eliminar (su dinero pasa a Libre)"><i class="fas fa-trash text-[var(--bad)]"></i></button>`:''}
@@ -3362,8 +3406,8 @@ function abrirMovimientoBolsillo(){
   const c = document.getElementById('modalContenido');
   back.style.display='flex';
   if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
-  const opciones = `<option value="libre:S/">🟢 Libre (S/)</option><option value="libre:USD">🟢 Libre ($)</option>` +
-    b.partes.map(p=>`<option value="${p.id}">${p.emoji||'💰'} ${p.nombre} (${p.moneda==='USD'?'$':'S/'})</option>`).join('');
+  const opciones = `<option value="libre:S/">💤 Libre — sin destino (S/)</option><option value="libre:USD">💤 Libre — sin destino ($)</option>` +
+    b.partes.map(p=>`<option value="${p.id}">${escHTML(p.emoji||'💰')} ${escHTML(p.nombre)} (${p.moneda==='USD'?'$':'S/'})</option>`).join('');
   c.innerHTML = `
     <div class="flex items-center gap-2 mb-4">
       <div class="sec-badge" style="--glow:var(--gold); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-right-left"></i></div>
@@ -3429,7 +3473,7 @@ function verHistorialBolsillo(){
   if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
   const filas = b.movimientos.slice().reverse().slice(0,60).map(mv=>{
     const est = ({ deposito:['▲','var(--good)'], retiro:['▼','var(--bad)'], mover:['⇄','var(--gold-soft)'] })[mv.tipo] || ['•','var(--ink-dim)'];
-    const ruta = mv.tipo==='deposito' ? `→ ${mv.aNombre||'Libre'}` : mv.tipo==='retiro' ? `desde ${mv.deNombre||'Libre'}` : `${mv.deNombre||'?'} → ${mv.aNombre||'?'}`;
+    const ruta = mv.tipo==='deposito' ? `Entró a ${escHTML(mv.aNombre||'Libre')}` : mv.tipo==='retiro' ? `Salió de ${escHTML(mv.deNombre||'Libre')}` : `${escHTML(mv.deNombre||'?')} → ${escHTML(mv.aNombre||'?')}`;
     const f = new Date(mv.fecha).toLocaleDateString('es-ES',{day:'numeric', month:'short'});
     return `
       <div class="flex items-center gap-3 py-2 border-b border-[var(--line)] last:border-0 text-sm">
@@ -3469,7 +3513,7 @@ function adminBolsillo(){
       ${DB.familia.map(mm=>`
         <div class="flex items-center gap-2 bg-[var(--bg-soft)] rounded-xl px-3 py-2">
           <input type="checkbox" class="adm-bolsillo" value="${mm.id}" ${(!Array.isArray(lista)||lista.includes(mm.id))?'checked':''} style="width:auto; accent-color:var(--sage)">
-          <span class="flex-1 text-sm">${mm.emoji} ${mm.nombre}</span>
+          <span class="flex-1 text-sm">${escHTML(mm.emoji)} ${escHTML(mm.nombre)}</span>
           ${DB.bolsillos[mm.id]?`
             <button onclick="resetearClaveBolsillo(${mm.id})" class="icon-btn text-[var(--gold-soft)]" title="Resetear su clave"><i class="fas fa-key text-xs"></i></button>
             <button onclick="borrarEspacioBolsillo(${mm.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Borrar su espacio"><i class="fas fa-trash text-xs"></i></button>
@@ -3557,7 +3601,7 @@ function abrirRepartoBolsillo(){
       </div>
       <label class="flex items-start gap-2 text-sm cursor-pointer bg-[var(--bg-soft)] rounded-xl p-2.5" style="border:1px solid var(--line)"><input type="checkbox" id="rp-nuevo" ${(saldoLibre(b,'S/')===0&&saldoLibre(b,'USD')===0)?'checked':''} onchange="actualizarPreviewReparto()" style="width:auto; accent-color:var(--sage); margin-top:.15rem"> <span>Es dinero <b>nuevo</b> — ingrésalo ahora <span class="opt">(si ya lo tenías en Libre, desmarca)</span></span></label>
       <button type="button" onclick="usarLibreReparto()" class="text-xs text-[var(--sage-soft)] hover:text-[var(--sage)]"><i class="fas fa-wand-magic-sparkles"></i> Usar todo mi saldo libre</button>
-      <div><label class="flabel">Plantilla</label>
+      <div><label class="flabel">¿Cómo lo repartimos?</label>
         <select id="rp-plantilla" onchange="actualizarPreviewReparto()">
           ${Object.entries(PLANTILLAS_REPARTO).map(([k,v])=>`<option value="${k}">${v.nombre} — ${v.desc}</option>`).join('')}
         </select>
@@ -3568,7 +3612,7 @@ function abrirRepartoBolsillo(){
         <button onclick="aplicarReparto()" class="btn btn-primary flex-1 py-3"><i class="fas fa-check"></i> Aplicar a mi dinero</button>
         <button onclick="closeModal()" class="btn btn-ghost px-5 py-3">Cerrar</button>
       </div>
-      <p class="text-[11px] text-[var(--ink-faint)] text-center">Escribe cualquier monto para <b>simular</b>. Para aplicarlo de verdad necesitas tenerlo en tu saldo <b>Libre</b>.</p>
+      <p class="text-[11px] text-[var(--ink-faint)] text-center">Prueba con cualquier monto sin miedo: nada se guarda hasta que toques <b>Aplicar</b>. Si marcas «Es dinero nuevo», se ingresa y reparte de una sola vez.</p>
     </div>`;
   actualizarPreviewReparto();
 }
