@@ -419,12 +419,16 @@
     <div class="max-w-2xl mx-auto mt-10">
       <div class="card p-6">
         <h3 class="serif text-xl font-medium mb-1">Balance familiar</h3>
-        <p class="text-sm text-[var(--ink-faint)] mb-4">Reparto automático de gastos compartidos</p>
+        <p class="text-sm text-[var(--ink-faint)] mb-4">Solo lo pendiente de pago · toca ✓ cuando alguien ya pague</p>
         <div id="resumenGasto" class="flex items-baseline gap-2 mb-5">
           <span class="text-4xl font-bold text-[var(--gold-soft)] mono" id="totalGastado">S/0</span>
           <span class="text-sm text-[var(--ink-faint)]">gastados este año</span>
         </div>
         <div id="deudas" class="space-y-2 mb-5"></div>
+        <div id="pagosRegistradosWrap" class="text-sm mb-5" style="display:none">
+          <p class="text-[var(--gold-soft)] font-medium mb-2"><i class="fas fa-clock-rotate-left"></i> Pagos registrados</p>
+          <div id="pagosRegistrados" class="space-y-1.5 max-h-52 overflow-y-auto scrollbar-thin pr-1"></div>
+        </div>
         <div class="text-sm">
           <p class="text-[var(--sage-soft)] font-medium mb-2">Historial de gastos</p>
           <div id="historialGastos" class="space-y-2 max-h-64 overflow-y-auto scrollbar-thin pr-1"></div>
@@ -681,6 +685,7 @@ const DEFAULTS = {
     { id:2, nombre:"Limpieza del hogar", categoria:"limpieza", tipo:"variable", monto:80, participantes:[2] },
   ],
   bolsillos: {},
+  liquidaciones: [],
   config: { pinHogar: null, pinApp: null },
 };
 
@@ -1446,9 +1451,9 @@ function construirInformeEvento(e){
   const gastosEvento = DB.gastos.filter(g=>g.eventoId===e.id);
   const totalGastado = gastosEvento.reduce((s,g)=>s+g.monto, 0);
 
-  // Deudas del evento (reparto exacto al céntimo, consolidado)
+  // Deudas del evento (solo lo pendiente, restando pagos ya registrados)
   const mapa = {};
-  deudasDeGastos(gastosEvento).forEach(d=>{ mapa[`${d.de}-${d.a}`] = d; });
+  deudasPendientes(gastosEvento, e.id).forEach(d=>{ mapa[`${d.de}-${d.a}`] = d; });
 
   // Fotos del evento
   const fotosEvento = DB.memorias.filter(m=>m.eventoId===e.id);
@@ -1735,6 +1740,34 @@ function deudasDeGastos(gastos){
   });
   return Object.values(mapa).filter(d=>d.monto>=0.01);
 }
+/* --- Pagos ya registrados: netean contra las deudas para mostrar solo lo pendiente --- */
+function liquidacionesDe(eventoId){
+  if(!DB.liquidaciones) DB.liquidaciones = [];
+  return DB.liquidaciones.filter(l => (l.eventoId||null) === (eventoId||null));
+}
+function deudasPendientes(gastos, eventoId){
+  const mapa = {};
+  deudasDeGastos(gastos).forEach(d=>{ const k=`${d.de}-${d.a}`; mapa[k]=(mapa[k]||{de:d.de, a:d.a, monto:0}); mapa[k].monto += d.monto; });
+  liquidacionesDe(eventoId).forEach(l=>{ const k=`${l.de}-${l.a}`; mapa[k]=(mapa[k]||{de:l.de, a:l.a, monto:0}); mapa[k].monto -= l.monto; });
+  return Object.values(mapa).filter(d=>round2(d.monto)>=0.01);
+}
+function marcarDeudaPagada(de, a, monto, eventoId){
+  if(!confirm(`¿${nombrePorId(de)} ya le pagó S/${monto.toFixed(2)} a ${nombrePorId(a)}?`)) return;
+  guardarSnapshot();
+  if(!DB.liquidaciones) DB.liquidaciones = [];
+  DB.liquidaciones.push({ id:Date.now(), de, a, monto:round2(monto), eventoId: eventoId||null, fecha:new Date().toISOString() });
+  guardar(); renderBalance();
+  if(panelActual==='inicio') renderEstadoInicio();
+  toastDeshacer(`Pago registrado: ${nombrePorId(de)} → ${nombrePorId(a)} ✅`);
+}
+function deshacerLiquidacion(id){
+  if(!confirm('¿Quitar este pago registrado? La deuda volverá a aparecer como pendiente.')) return;
+  guardarSnapshot();
+  DB.liquidaciones = DB.liquidaciones.filter(l=>l.id!==id);
+  guardar(); renderBalance();
+  if(panelActual==='inicio') renderEstadoInicio();
+  toastDeshacer('Pago quitado del historial ↩️');
+}
 function gruposGastosPorEvento(){
   const grupos = [];
   const usados = new Set();
@@ -1749,39 +1782,62 @@ function gruposGastosPorEvento(){
 function renderBalance(){
   const total = DB.gastos.reduce((s,g)=>s+g.monto,0);
   document.getElementById('totalGastado').textContent = 'S/'+total.toLocaleString();
-  const grupos = gruposGastosPorEvento();
+  const grupos = gruposGastosPorEvento().map(grp=>{
+    const eventoId = grp.evento ? grp.evento.id : null;
+    return { ...grp, eventoId, deudas: deudasPendientes(grp.gastos, eventoId) };
+  }).filter(grp => grp.deudas.length > 0);
+
   document.getElementById('deudas').innerHTML = grupos.length ? grupos.map((grp,i)=>{
     const e = grp.evento;
     const totalGrupo = grp.gastos.reduce((s,g)=>s+g.monto,0);
-    const deudas = deudasDeGastos(grp.gastos);
     const fechaStr = e ? new Date(e.fecha+'T00:00').toLocaleDateString('es-ES',{day:'numeric', month:'short', year:'numeric'}) : '';
     const header = e
       ? `<div class="flex items-center gap-2 min-w-0">
            <span class="text-base flex-shrink-0">${e.emoji||'🎉'}</span>
            <div class="min-w-0">
-             <p class="text-sm font-semibold truncate">${e.titulo}</p>
+             <p class="text-sm font-semibold truncate">${escHTML(e.titulo)}</p>
              <p class="text-[11px] text-[var(--ink-faint)]">${fechaStr}</p>
            </div>
            <button onclick="editarEvento(${e.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)] flex-shrink-0" title="Editar evento"><i class="fas fa-pen text-[11px]"></i></button>
          </div>`
       : `<div class="flex items-center gap-2"><span class="text-base">🧾</span><p class="text-sm font-semibold">Gastos generales</p></div>`;
     return `
-    <div class="rounded-2xl p-3.5 mb-2.5" style="background:var(--bg-soft); border:1px solid var(--line); border-left:4px solid var(--sage);">
+    <div class="rounded-2xl p-3.5 mb-2.5" style="background:var(--bg-soft); border:1px solid var(--line); border-left:4px solid var(--terracotta);">
       <div class="flex items-center justify-between gap-2 mb-2.5">
-        <span class="chip" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">Balance ${i+1}</span>
+        <span class="chip" style="background:rgba(251,113,133,.12); color:var(--terracotta);">Pendiente ${i+1}</span>
         <span class="mono text-xs font-semibold text-[var(--gold-soft)]">S/${totalGrupo.toLocaleString()}</span>
       </div>
       <div class="mb-2.5">${header}</div>
       <div class="space-y-1.5">
-        ${deudas.length ? deudas.map(t=>`
-          <div class="flex items-center justify-between text-sm bg-[var(--surface)] rounded-xl px-3 py-2" style="border:1px solid var(--line);">
-            <span><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
-            <span class="mono font-semibold">S/${t.monto.toFixed(2)}</span>
-          </div>`).join('')
-        : `<p class="text-xs text-[var(--ink-faint)]"><i class="fas fa-circle-check text-[var(--good)]"></i> Sin deudas pendientes en este balance</p>`}
+        ${grp.deudas.map(t=>`
+          <div class="flex items-center justify-between gap-2 text-sm bg-[var(--surface)] rounded-xl px-3 py-2" style="border:1px solid var(--line);">
+            <span class="min-w-0"><b class="text-[var(--terracotta)]">${nombrePorId(t.de)}</b> le debe a <b class="text-[var(--sage-soft)]">${nombrePorId(t.a)}</b></span>
+            <span class="flex items-center gap-2 flex-shrink-0">
+              <span class="mono font-semibold">S/${t.monto.toFixed(2)}</span>
+              <button onclick="marcarDeudaPagada(${t.de},${t.a},${t.monto},${grp.eventoId==null?'null':grp.eventoId})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--good)]" title="Marcar como ya pagado"><i class="fas fa-check"></i></button>
+            </span>
+          </div>`).join('')}
       </div>
     </div>`;
-  }).join('') : `<p class="text-sm text-[var(--ink-faint)]">Todo está parejo, nadie debe nada 🎉</p>`;
+  }).join('') : `<p class="text-sm text-[var(--ink-faint)]"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo está pagado, no hay deudas pendientes 🎉</p>`;
+
+  const pagos = (DB.liquidaciones||[]).slice().sort((a,b)=> new Date(b.fecha)-new Date(a.fecha));
+  const wrap = document.getElementById('pagosRegistradosWrap');
+  wrap.style.display = pagos.length ? '' : 'none';
+  if(pagos.length){
+    document.getElementById('pagosRegistrados').innerHTML = pagos.map(l=>{
+      const ev = l.eventoId ? DB.eventos.find(e=>e.id===l.eventoId) : null;
+      const fechaStr = new Date(l.fecha).toLocaleDateString('es-ES',{day:'numeric', month:'short'});
+      return `
+      <div class="flex items-center justify-between gap-2 bg-[var(--bg-soft)] rounded-xl px-3 py-2" style="border:1px solid var(--line);">
+        <span class="min-w-0 truncate"><b class="text-[var(--ink-dim)]">${nombrePorId(l.de)}</b> → <b class="text-[var(--sage-soft)]">${nombrePorId(l.a)}</b> <span class="text-[var(--ink-faint)]">· ${fechaStr}${ev?' · '+escHTML(ev.titulo):''}</span></span>
+        <span class="flex items-center gap-2 flex-shrink-0">
+          <span class="mono font-semibold text-[var(--good)]">S/${l.monto.toFixed(2)}</span>
+          <button onclick="deshacerLiquidacion(${l.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]" title="Quitar (vuelve a quedar pendiente)"><i class="fas fa-rotate-left text-xs"></i></button>
+        </span>
+      </div>`;
+    }).join('');
+  }
 
   document.getElementById('historialGastos').innerHTML = DB.gastos.length ? DB.gastos.slice().reverse().map(g=>`
     <div class="flex justify-between items-center text-[var(--ink-dim)] gap-2">
@@ -2692,27 +2748,29 @@ function renderEstadoInicio(){
       </div>`;
   }
 
-  // --- Balance familiar (separado por evento) ---
-  const gruposBal = gruposGastosPorEvento();
+  // --- Balance familiar (solo lo pendiente de pago, separado por evento) ---
+  const gruposBal = gruposGastosPorEvento().map(grp=>{
+    const eventoId = grp.evento ? grp.evento.id : null;
+    return { ...grp, deudas: deudasPendientes(grp.gastos, eventoId) };
+  }).filter(grp => grp.deudas.length > 0);
   const mesKey = new Date().toISOString().slice(0,7);
   const totalMes = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mesKey)).reduce((s,g)=>s+g.monto,0);
 
   const bloquesBal = gruposBal.slice(0,3).map((grp,i)=>{
     const e = grp.evento;
-    const deudasG = deudasDeGastos(grp.gastos);
     const totalGrupo = grp.gastos.reduce((s,g)=>s+g.monto,0);
-    const nombre = e ? `${e.emoji||'🎉'} ${e.titulo}` : '🧾 Gastos generales';
+    const nombre = e ? `${escHTML(e.emoji||'🎉')} ${escHTML(e.titulo)}` : '🧾 Gastos generales';
     return `
-      <div class="rounded-xl p-2.5 mb-2 last:mb-0" style="background:var(--bg-soft); border:1px solid var(--line); border-left:3px solid var(--sage);">
+      <div class="rounded-xl p-2.5 mb-2 last:mb-0" style="background:var(--bg-soft); border:1px solid var(--line); border-left:3px solid var(--terracotta);">
         <div class="flex items-center justify-between gap-2 mb-1.5">
-          <span class="text-xs font-semibold truncate flex items-center gap-1.5"><span class="chip text-[9px] px-1.5 py-0.5" style="background:rgba(16,185,129,.12); color:var(--sage-soft);">B${i+1}</span> <span class="truncate">${nombre}</span></span>
+          <span class="text-xs font-semibold truncate flex items-center gap-1.5"><span class="chip text-[9px] px-1.5 py-0.5" style="background:rgba(251,113,133,.12); color:var(--terracotta);">Pendiente ${i+1}</span> <span class="truncate">${nombre}</span></span>
           <span class="mono text-[11px] font-semibold text-[var(--gold-soft)] flex-shrink-0">S/${totalGrupo.toLocaleString()}</span>
         </div>
-        ${deudasG.length ? deudasG.slice(0,3).map(d=>`
+        ${grp.deudas.slice(0,3).map(d=>`
           <div class="flex items-center justify-between text-[13px] py-0.5">
             <span><span class="font-semibold text-[var(--terracotta)]">${nombrePorId(d.de)}</span> le debe a <span class="font-semibold text-[var(--sage-soft)]">${nombrePorId(d.a)}</span></span>
             <span class="mono font-semibold">S/${d.monto.toFixed(2)}</span>
-          </div>`).join('') : `<p class="text-xs text-[var(--ink-faint)]"><i class="fas fa-circle-check text-[var(--good)]"></i> Sin deudas pendientes</p>`}
+          </div>`).join('')}
       </div>`;
   }).join('');
 
@@ -2726,10 +2784,10 @@ function renderEstadoInicio(){
           <i class="fas fa-chevron-right text-xs"></i>
         </span>
       </div>
-      <p class="text-[11px] text-[var(--ink-faint)] mb-2.5">Quién le debe a quién, separado por evento. Toca para ver todo.</p>
+      <p class="text-[11px] text-[var(--ink-faint)] mb-2.5">Solo lo pendiente de pago. Toca para marcar como pagado.</p>
       ${gruposBal.length ? bloquesBal
-        + (gruposBal.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-1">+${gruposBal.length-3} balance${gruposBal.length-3===1?'':'s'} más → Ver gastos</p>` : '')
-      : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo parejo, nadie debe nada</p>`}
+        + (gruposBal.length > 3 ? `<p class="text-xs text-[var(--ink-faint)] pt-1">+${gruposBal.length-3} pendiente${gruposBal.length-3===1?'':'s'} más → Ver gastos</p>` : '')
+      : `<p class="text-sm text-[var(--ink-faint)] flex items-center gap-2"><i class="fas fa-circle-check text-[var(--good)]"></i> Todo está pagado, nadie debe nada</p>`}
     </div>`;
 
   // --- Cumpleaños próximos (7 días) ---
@@ -2765,7 +2823,7 @@ function renderEstadoInicio(){
     const filas = pagosPendientes.map(e=>{
       const dias = diasRestantes(e.fechaPago);
       const venc = dias < 0;
-      const totalDeuda = deudasDeGastos(DB.gastos.filter(g=>g.eventoId===e.id)).reduce((s,d)=>s+d.monto,0);
+      const totalDeuda = deudasPendientes(DB.gastos.filter(g=>g.eventoId===e.id), e.id).reduce((s,d)=>s+d.monto,0);
       const fechaStr = new Date(e.fechaPago+'T00:00').toLocaleDateString('es-ES',{day:'numeric', month:'long'});
       const estado = venc ? `vencido hace ${Math.abs(dias)}d` : dias===0 ? 'hoy' : `en ${dias} día${dias===1?'':'s'}`;
       return `
@@ -4012,6 +4070,7 @@ function verInformeEvento(id){
   if(!DB.config) DB.config = { pinHogar: null, pinApp: null };
   if(!DB.config.pinApp) DB.config.pinApp = null;
   if(!DB.bolsillos) DB.bolsillos = {};
+  if(!DB.liquidaciones) DB.liquidaciones = [];
   verificarAppLock();
   actualizarIconoTema();
   const cerrados = autoCerrarEventos();
