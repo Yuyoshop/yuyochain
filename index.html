@@ -2025,6 +2025,7 @@ function renderGastosFijos(){
           <i class="fas fa-receipt text-xs"></i>
           ${boletasDeFijo(g).length ? `<span class="absolute -top-1 -right-1 text-[8px] leading-none bg-[var(--gold)] text-[#241404] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">${boletasDeFijo(g).length}</span>` : ''}
         </button>
+        ${(g.historial&&g.historial.length) ? `<button onclick="verHistorialGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--sage-soft)]" title="Ver meses anteriores (${g.historial.length})"><i class="fas fa-clock-rotate-left text-xs"></i></button>` : ''}
         <button onclick="editarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--gold-soft)]"><i class="fas fa-pen text-xs"></i></button>
         <button onclick="eliminarGastoFijo(${g.id})" class="icon-btn text-[var(--ink-faint)] hover:text-[var(--bad)]"><i class="fas fa-trash text-xs"></i></button>
       </div>
@@ -2059,14 +2060,42 @@ function editarMontoRapido(id){
     </div>`;
   setTimeout(()=>{ const i=document.getElementById('mr-monto'); if(i){ i.focus(); i.select(); } }, 60);
 }
+function archivarMesGastoFijo(g){
+  if(!g.historial) g.historial = [];
+  g.historial.push({ monto:g.monto, aportes:g.aportes?{...g.aportes}:null, fecha:new Date().toISOString() });
+  if(g.historial.length>24) g.historial = g.historial.slice(-24);
+}
 function guardarMontoRapido(id){
   const g = DB.gastosFijos.find(x=>x.id===id);
   if(!g) return;
   const nuevo = parseFloat(document.getElementById('mr-monto').value);
   if(isNaN(nuevo) || nuevo<=0){ toast('Ingresa un monto válido', 'bad'); return; }
+  if(nuevo !== g.monto) archivarMesGastoFijo(g);
   g.monto = nuevo; g.actualizar = false;
   guardar(); closeModal(); renderGastosFijos();
-  toast(`${g.nombre}: S/${nuevo.toLocaleString()} ✏️`);
+  toast(`${g.nombre}: S/${nuevo.toLocaleString()} ✏️ · mes anterior guardado en historial`);
+}
+function verHistorialGastoFijo(id){
+  const g = DB.gastosFijos.find(x=>x.id===id);
+  if(!g) return;
+  const back = document.getElementById('modalBackdrop');
+  const c = document.getElementById('modalContenido');
+  back.style.display='flex';
+  if(!modalAbierto){ modalAbierto = true; history.pushState({modal:true}, ''); }
+  const filas = (g.historial||[]).slice().reverse().map(h=>{
+    const f = new Date(h.fecha).toLocaleDateString('es-ES',{month:'long', year:'numeric'});
+    return `<div class="flex items-center justify-between text-sm bg-[var(--bg-soft)] rounded-xl px-3 py-2" style="border:1px solid var(--line);">
+      <span class="capitalize">${f}</span><span class="mono font-semibold">S/${h.monto.toLocaleString()}</span>
+    </div>`;
+  }).join('');
+  c.innerHTML = `
+    <div class="flex items-center gap-2 mb-1">
+      <div class="sec-badge" style="--glow:var(--gold); width:40px; height:40px; border-radius:12px; font-size:1rem;"><i class="fas fa-clock-rotate-left"></i></div>
+      <h3 class="serif text-xl font-semibold">${escHTML(g.nombre)}</h3>
+    </div>
+    <p class="text-sm text-[var(--ink-faint)] mb-4">Montos de meses anteriores. El monto actual (S/${g.monto.toLocaleString()}) no está en esta lista.</p>
+    <div class="space-y-2 mb-4 max-h-64 overflow-y-auto scrollbar-thin pr-1">${filas || `<p class="text-sm text-[var(--ink-faint)]">Aún no hay meses anteriores guardados.</p>`}</div>
+    <button onclick="closeModal()" class="btn btn-ghost w-full py-2.5 text-sm">Cerrar</button>`;
 }
 function verBoletasFijo(id){
   const back = document.getElementById('modalBackdrop');
@@ -2235,6 +2264,7 @@ async function guardarGastoFijo(id){
 
   let g = id ? DB.gastosFijos.find(x=>x.id===id) : null;
   if(g){
+    if(monto !== g.monto) archivarMesGastoFijo(g);
     g.nombre=nombre; g.categoria=categoria; g.tipo=tipo; g.monto=monto; g.participantes=participantes; g.aportes=aportes; g.actualizar=false; delete g.responsable;
     toast('Gasto del hogar actualizado ✏️');
   } else {
